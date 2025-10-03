@@ -1,6 +1,7 @@
 enable_testing()
 
-find_package(unity REQUIRED CONFIG REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(unity REQUIRED unity)
 
 set(test_sources )
 
