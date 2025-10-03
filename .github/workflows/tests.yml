@@ -1,0 +1,28 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: "actions/checkout@v4"
+        with:
+          submodules: recursive
+
+      - name: Install Nix
+        uses: "cachix/install-nix-action@v31"
+        with:
+          github_access_token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Build
+        run: nix build
+
+      - name: Check flake
+        run: nix flake check --show-trace
