@@ -389,6 +389,12 @@ int main(int argc, const char *argv[])
     struct sockaddr_in client_addr;
     socklen_t addr_len = 0;
     client_sock = accept(server_sock, (struct sockaddr *)&client_addr, &addr_len);
+    if (client_sock < 0) {
+        perror("Could not accept connection");
+        return EXIT_FAILURE;
+    }
+
+    printf("Connection from %s\n", inet_ntoa(client_addr.sin_addr));
 
     Context ctx = {
         .cpu = cpu,
