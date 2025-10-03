@@ -1,9 +1,9 @@
 enable_testing()
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(unity REQUIRED unity)
+add_library(unity STATIC ${PROJECT_SOURCE_DIR}/external/unity/unity.c)
+target_include_directories(unity PUBLIC ${PROJECT_SOURCE_DIR}/external/unity)
 
-set(test_sources )
+set(test_sources test_str.c)
 
 # Generate test runners for each test file
 foreach(test_source ${test_sources})
@@ -24,7 +24,7 @@ foreach(test_source ${test_sources})
 
   add_executable(${test_exec} ${test_source_path} ${runner_source})
   target_link_libraries(${test_exec} PRIVATE rv32_emu_lib)
-  target_link_libraries(${test_exec} PRIVATE unity::framework)
+  target_link_libraries(${test_exec} PRIVATE unity)
 
   add_test(NAME ${test_name} COMMAND ${test_exec})
 endforeach()

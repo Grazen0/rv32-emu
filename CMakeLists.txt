@@ -12,8 +12,11 @@ endif()
 
 set(sources
     src/cpu.c
+    src/gdb.c
     src/macros.c
-    src/stdinc.c)
+    src/stdinc.c
+    src/str.c
+    src/util.c)
 
 add_library(argparse STATIC external/argparse/argparse.c)
 target_include_directories(argparse PUBLIC external/argparse)

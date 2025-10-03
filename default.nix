@@ -2,8 +2,6 @@
   stdenv,
   lib,
   cmake,
-  pkg-config,
-  unity-test,
   ruby,
 }:
 stdenv.mkDerivation (finalAttrs: {
@@ -14,8 +12,6 @@ stdenv.mkDerivation (finalAttrs: {
 
   nativeBuildInputs = [
     cmake
-    pkg-config
-    unity-test
     ruby
   ];
 
