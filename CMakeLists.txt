@@ -11,6 +11,7 @@ else()
 endif()
 
 set(sources
+    src/cpu.c
     src/macros.c
     src/stdinc.c)
 

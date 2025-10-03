@@ -11,6 +11,7 @@
     inputs@{
       self,
       flake-parts,
+      nixpkgs,
       ...
     }:
     flake-parts.lib.mkFlake { inherit inputs; } {
@@ -23,6 +24,12 @@
           system,
           ...
         }:
+        let
+          riscvCross = import nixpkgs {
+            inherit system;
+            crossSystem.config = "riscv32-none-elf";
+          };
+        in
         {
           packages = {
             rv32-emu = pkgs.callPackage ./default.nix { };
@@ -31,6 +38,7 @@
 
           devShells.default = pkgs.callPackage ./shell.nix {
             inherit (self'.packages) rv32-emu;
+            riscvPackages = riscvCross.buildPackages;
           };
         };
     };
