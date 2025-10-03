@@ -10,7 +10,7 @@ static constexpr size_t CPU_REGS_SIZE = 32;
 
 typedef struct Cpu {
     u32 pc;
-    i32 registers[CPU_REGS_SIZE];
+    u32 registers[CPU_REGS_SIZE];
     u8 *memory;
 } Cpu;
 
