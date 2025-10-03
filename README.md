@@ -24,7 +24,7 @@ CPUlator's insanely simple system specs (all RAM, even the program data).
 ## Building
 
 If don't disable compiling tests via `-DBUILD_TESTING=Off`, you'll need to have
-[Unity Test](https://github.com/ThrowTheSwitch/Unity) and [Ruby](https://www.ruby-lang.org/en/) installed on your machine.
+[pkg-config], [Unity Test] and [Ruby] installed on your machine.
 
 You should be able to just clone the repo and run these:
 
@@ -33,3 +33,7 @@ cmake -S . -B build
 cmake --build build
 build/rv32-emu <path-to-binary>
 ```
+
+[pkg-config]: https://www.freedesktop.org/wiki/Software/pkg-config/
+[unity test]: https://github.com/ThrowTheSwitch/Unity
+[ruby]: https://www.ruby-lang.org/en/
