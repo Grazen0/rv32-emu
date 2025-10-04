@@ -81,7 +81,7 @@ bool Cpu_load_file(Cpu *const cpu, FILE *const file, size_t *const fread_result)
 void Cpu_step(Cpu *const cpu)
 {
     const u32 instr = read_u32_le(cpu->memory, cpu->pc);
-    cpu->pc += 4;
+    u32 new_pc = cpu->pc + 4;
 
     const u8 op = instr & 0b111'1111;
     const u8 funct3 = (instr >> 12) & 0b111;
@@ -162,7 +162,7 @@ void Cpu_step(Cpu *const cpu)
         break;
     }
     case 0b001'0111:
-        cpu->registers[rd] = cpu->pc - 4 + imm_u;
+        cpu->registers[rd] = cpu->pc + imm_u;
         break;
     case 0b010'0011: {
         const u32 addr = cpu->registers[rs1] + imm_s;
@@ -232,48 +232,49 @@ void Cpu_step(Cpu *const cpu)
         switch (funct3) {
         case 0b000:
             if (cpu->registers[rs1] == cpu->registers[rs2])
-                cpu->pc += imm_b;
+                new_pc = cpu->pc + imm_b;
             break;
         case 0b001:
             if (cpu->registers[rs1] != cpu->registers[rs2])
-                cpu->pc += imm_b;
+                new_pc = cpu->pc + imm_b;
             break;
         case 0b100:
             if ((i32)cpu->registers[rs1] < (i32)cpu->registers[rs2])
-                cpu->pc += imm_b;
+                new_pc = cpu->pc + imm_b;
             break;
         case 0b101:
             if ((i32)cpu->registers[rs1] >= (i32)cpu->registers[rs2])
-                cpu->pc += imm_b;
+                new_pc = cpu->pc + imm_b;
             break;
         case 0b110:
             if (cpu->registers[rs1] < cpu->registers[rs2])
-                cpu->pc += imm_b;
+                new_pc = cpu->pc + imm_b;
             break;
         case 0b111:
             if (cpu->registers[rs1] >= cpu->registers[rs2])
-                cpu->pc += imm_b;
+                new_pc = cpu->pc + imm_b;
             break;
         default:
             BAIL("illegal instruction: 0x%08X\n", instr);
         }
         break;
     case 0b110'0111:
-        cpu->registers[rd] = (i32)cpu->pc;
+        cpu->registers[rd] = new_pc;
 
         if (funct3 == 0b000)
-            cpu->pc = (cpu->registers[rs1] + imm_i) & ~1;
+            new_pc = (cpu->registers[rs1] + imm_i) & ~1;
         else
             BAIL("illegal instruction: 0x%08X\n", instr);
 
         break;
     case 0b110'1111:
-        cpu->registers[rd] = (i32)cpu->pc;
-        cpu->pc += imm_j - 4;
+        cpu->registers[rd] = new_pc;
+        new_pc = cpu->pc + imm_j;
         break;
     default:
         BAIL("illegal instruction: 0x%08X\n", instr);
     }
 
+    cpu->pc = new_pc;
     cpu->registers[0] = 0;
 }
