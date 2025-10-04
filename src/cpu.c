@@ -91,12 +91,7 @@ void Cpu_step(Cpu *const cpu)
     const u8 rs2 = (instr >> 20) & 0b1'1111;
 
     const i32 imm_i = (i32)instr >> 20;
-    const i32 imm_s = (i32)((instr >> 7) & 0x1F) | (((i32)instr >> 25) << 5);
-    const i32 imm_b = (i32)((((instr >> 8) & 0xF) << 1) | (((instr >> 25) & 0x3F) << 5) |
-                            (((instr >> 7) & 0x1) << 11) | (((i32)instr >> 31) << 12));
     const i32 imm_u = (i32)(instr & 0xFFFFF000);
-    const i32 imm_j = (i32)((((instr >> 21) & 0x3FF) << 1) | (((instr >> 20) & 0x1) << 11) |
-                            (((instr >> 12) & 0xFF) << 12) | (((i32)instr >> 31) << 20));
 
     switch (op) {
     case 0b000'0011: {
@@ -165,6 +160,7 @@ void Cpu_step(Cpu *const cpu)
         cpu->registers[rd] = cpu->pc + imm_u;
         break;
     case 0b010'0011: {
+        const i32 imm_s = (i32)((instr >> 7) & 0x1F) | (((i32)instr >> 25) << 5);
         const u32 addr = cpu->registers[rs1] + imm_s;
 
         switch (funct3) {
@@ -228,7 +224,10 @@ void Cpu_step(Cpu *const cpu)
     case 0b011'0111:
         cpu->registers[rd] = imm_u;
         break;
-    case 0b110'0011:
+    case 0b110'0011: {
+        const i32 imm_b = (i32)((((instr >> 8) & 0xF) << 1) | (((instr >> 25) & 0x3F) << 5) |
+                                (((instr >> 7) & 0x1) << 11) | (((i32)instr >> 31) << 12));
+
         switch (funct3) {
         case 0b000:
             if (cpu->registers[rs1] == cpu->registers[rs2])
@@ -258,6 +257,7 @@ void Cpu_step(Cpu *const cpu)
             BAIL("illegal instruction: 0x%08X\n", instr);
         }
         break;
+    }
     case 0b110'0111:
         cpu->registers[rd] = new_pc;
 
@@ -267,10 +267,15 @@ void Cpu_step(Cpu *const cpu)
             BAIL("illegal instruction: 0x%08X\n", instr);
 
         break;
-    case 0b110'1111:
+    case 0b110'1111: {
+
+        const i32 imm_j = (i32)((((instr >> 21) & 0x3FF) << 1) | (((instr >> 20) & 0x1) << 11) |
+                                (((instr >> 12) & 0xFF) << 12) | (((i32)instr >> 31) << 20));
+
         cpu->registers[rd] = new_pc;
         new_pc = cpu->pc + imm_j;
         break;
+    }
     default:
         BAIL("illegal instruction: 0x%08X\n", instr);
     }
