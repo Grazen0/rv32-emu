@@ -2,6 +2,8 @@
 
 A quick and dirty RISC-V 32 emulator written in C.
 
+![Screenshot](https://github.com/Grazen0/rv32-emu/blob/main/.github/screenshot.png?raw=true)
+
 [CPUlator](https://cpulator.01xz.net/) is an awesome website we're using in my
 computer architecture class to learn RV32I assembly, _but_ I wanted an offline
 solution using the GCC RISC-V toolchain and whatnot. What I needed was an
