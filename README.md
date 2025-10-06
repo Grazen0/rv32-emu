@@ -26,7 +26,7 @@ CPUlator's insanely simple system specs (all RAM, even the program data).
 ## Building
 
 If don't disable compiling tests via `-DBUILD_TESTING=Off`, you'll need to have
-[pkg-config], [Unity Test] and [Ruby] installed on your machine.
+[Ruby] installed on your machine.
 
 You should be able to just clone the repo and run these:
 
