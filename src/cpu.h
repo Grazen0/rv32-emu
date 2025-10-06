@@ -18,7 +18,7 @@ Cpu Cpu_new(void);
 
 void Cpu_destroy(Cpu *cpu);
 
-bool Cpu_load_file(Cpu *cpu, FILE *file, size_t *fread_result);
+void Cpu_load_data(Cpu *cpu, u32 addr, const u8 *data, size_t data_size);
 
 void Cpu_step(Cpu *cpu);
 

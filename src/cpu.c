@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static u32 read_u32_le(const u8 *const memory, const u32 addr)
+[[nodiscard]] static u32 read_u32_le(const u8 *const memory, const u32 addr)
 {
     if (addr > CPU_MEMORY_SIZE - 4)
         BAIL("memory index out of bounds: 0x%08X\n", addr);
@@ -18,7 +18,7 @@ static u32 read_u32_le(const u8 *const memory, const u32 addr)
     return a | (b << 8) | (c << 16) | (d << 24);
 }
 
-static u16 read_u16_le(const u8 *const memory, const u32 addr)
+[[nodiscard]] static u16 read_u16_le(const u8 *const memory, const u32 addr)
 {
     if (addr > CPU_MEMORY_SIZE - 2)
         BAIL("memory index out of bounds: 0x%08X\n", addr);
@@ -65,17 +65,13 @@ void Cpu_destroy(Cpu *const cpu)
     free(cpu->memory);
 }
 
-bool Cpu_load_file(Cpu *const cpu, FILE *const file, size_t *const fread_result)
+void Cpu_load_data(Cpu *const cpu, const u32 addr, const u8 *const data, const size_t data_size)
 {
-    fseek(file, 0L, SEEK_END);
-    const size_t file_size = ftell(file);
-    fseek(file, 0L, SEEK_SET);
+    if (addr + data_size >= CPU_MEMORY_SIZE)
+        BAIL("Data is too large.");
 
-    if (file_size > CPU_MEMORY_SIZE)
-        return false;
-
-    *fread_result = fread(cpu->memory, sizeof(cpu->memory[0]), file_size, file);
-    return true;
+    for (size_t i = 0; i < data_size; ++i)
+        cpu->memory[addr + i] = data[i];
 }
 
 void Cpu_step(Cpu *const cpu)
@@ -138,9 +134,9 @@ void Cpu_step(Cpu *const cpu)
             cpu->registers[rd] = cpu->registers[rs1] ^ imm_i;
             break;
         case 0b101:
-            if (funct7 == 0b000'0000) // srli rd, rs1, imm
+            if (funct7 == 0b000'0000)
                 cpu->registers[rd] = cpu->registers[rs1] >> shamt;
-            else if (funct7 == 0b010'0000) // srai rd, rs1, imm
+            else if (funct7 == 0b010'0000)
                 cpu->registers[rd] = (u32)((i32)cpu->registers[rs1] >> shamt);
             else
                 BAIL("illegal instruction: 0x%08X\n", instr);

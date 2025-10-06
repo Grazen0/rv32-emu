@@ -1,7 +1,8 @@
 #include "cpu.h"
-#include "gdb.h"
+#include "protocol.h"
 #include "stdinc.h"
 #include "str.h"
+#include "util.h"
 #include <argparse.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -21,30 +22,21 @@ static const char *const usages[] = {
     nullptr,
 };
 
-static constexpr u16 DEFAULT_PORT = 1234;
+static constexpr u16 DEFAULT_PORT = 3333;
 
 static bool verbose = false;
 
-static int server_sock = 0;
-static int client_sock = 0;
-
-void ver_printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
-
-void ver_printf(const char *const fmt, ...)
-{
-    if (verbose) {
-        va_list args;
-        va_start(args, fmt);
-        vprintf(fmt, args);
-        va_end(args);
-    }
-}
+static GdbServer server = {};
+static int client_sock = -1;
 
 static void cleanup(void)
 {
     printf("Shutting down gracefully...\n");
-    close(client_sock);
-    close(server_sock);
+
+    if (client_sock >= 0)
+        close(client_sock);
+
+    close(server.sock);
 }
 
 static struct sigaction old_action;
@@ -56,174 +48,42 @@ static void sigint_handler([[maybe_unused]] const int sig_no)
     kill(0, SIGINT);
 }
 
-static constexpr size_t BUF_CAPACITY = 128;
-static char packet_buf[BUF_CAPACITY];
-static size_t packet_buf_size = 0;
-static size_t packet_buf_head = 0;
-
-void refill_buf(const int sock)
-{
-    packet_buf_size = read(sock, packet_buf, BUF_CAPACITY * sizeof(char));
-    packet_buf_head = 0;
-}
-
-bool read_buf(const int sock, char *const dest)
-{
-    if (packet_buf_head >= packet_buf_size) {
-        refill_buf(sock);
-
-        if (packet_buf_size == 0)
-            return false;
-    }
-
-    *dest = packet_buf[packet_buf_head];
-    ++packet_buf_head;
-
-    return true;
-}
-
-bool try_read_buf(const int sock, char *const dest)
-{
-    if (packet_buf_head >= packet_buf_size) {
-        struct pollfd pfd = {
-            .fd = sock,
-            .events = POLLIN,
-        };
-
-        const int ret = poll(&pfd, 1, 0);
-
-        if (ret <= 0 || ((pfd.revents & POLLIN) == 0))
-            return false;
-
-        read(sock, dest, sizeof(*dest));
-
-        return true;
-    }
-
-    *dest = packet_buf[packet_buf_head];
-    ++packet_buf_head;
-
-    return true;
-}
-
-bool receive_packet(const int sock, Packet *const dest)
-{
-    String data = String_new();
-    char ch = '\0';
-
-    while (ch != '$') {
-        if (!read_buf(sock, &ch))
-            return false;
-    }
-
-    while (true) {
-        if (!read_buf(sock, &ch))
-            return false;
-
-        if (ch == '#')
-            break;
-
-        String_push(&data, ch);
-    }
-
-    char checksum_str[3] = {};
-
-    if (!read_buf(sock, &checksum_str[0]))
-        return false;
-
-    if (!read_buf(sock, &checksum_str[1]))
-        return false;
-
-    *dest = (Packet){
-        .data = data,
-        .checksum = strtol(checksum_str, nullptr, 16),
-    };
-    return true;
-}
-
 typedef struct Context {
     Cpu cpu;
-    int client_sock;
-    bool no_ack_mode;
-    bool running;
 } Context;
 
-static inline void String_push_hex(String *const str, const u8 byte)
-{
-    char buf[3] = {};
-    sprintf(buf, "%02x", byte);
-    String_push_raw(str, buf);
-}
-
-/**
- * Takes ownership of data.
- */
-bool send_response(Context *const ctx, String data)
-{
-    ver_printf("Response: %s\n", data.data);
-
-    const u8 checksum = data_checksum(&data);
-
-    String raw_data = String_with_capacity(data.size + 4);
-    String_push(&raw_data, '$');
-    String_push_str(&raw_data, data);
-    String_push(&raw_data, '#');
-    String_push_hex(&raw_data, checksum);
-
-    write(ctx->client_sock, raw_data.data, raw_data.size);
-
-    if (!ctx->no_ack_mode) {
-        while (true) {
-            char ch = '\0';
-
-            if (!read_buf(ctx->client_sock, &ch))
-                return false;
-
-            if (ch == '+')
-                break;
-
-            if (ch == '-')
-                write(ctx->client_sock, raw_data.data, raw_data.size);
-        }
-    }
-
-    String_destroy(&raw_data);
-    String_destroy(&data);
-    return true;
-}
-
-bool handle_q_packet(Context *const ctx, const Packet *const packet)
+[[nodiscard]] static String handle_q_packet(const Packet *const packet, GdbServer *const server)
 {
     if (strncmp(packet->data.data, "qSupported", strlen("qSupported")) == 0)
-        return send_response(ctx, String_from("QStartNoAckMode+"));
+        return String_from("QStartNoAckMode+");
 
     if (strcmp(packet->data.data, "QStartNoAckMode") == 0) {
-        ctx->no_ack_mode = true;
-        return send_response(ctx, String_from("OK"));
+        GdbServer_set_no_ack_mode(server, true);
+        return String_from("OK");
     }
 
     if (strcmp(packet->data.data, "qfThreadInfo") == 0)
-        return send_response(ctx, String_from("m1"));
+        return String_from("m1");
 
     if (strcmp(packet->data.data, "qsThreadInfo") == 0)
-        return send_response(ctx, String_from("l"));
+        return String_from("l");
 
     if (strcmp(packet->data.data, "qC") == 0)
-        return send_response(ctx, String_from("QC1"));
+        return String_from("QC1");
 
     if (strcmp(packet->data.data, "qTStatus") == 0)
-        return send_response(ctx, String_new());
+        return String_new();
 
-    return send_response(ctx, String_new());
+    return String_new();
 }
 
-bool handle_v_packet(Context *const ctx, const Packet *const packet)
+[[nodiscard]] static String handle_v_packet(const Packet *const packet)
 {
     if (strcmp(packet->data.data, "vCont?") == 0) {
-        return send_response(ctx, String_from("vCont;c;s;t"));
+        return String_from("vCont;c;s;t");
     }
 
-    return send_response(ctx, String_new());
+    return String_new();
 }
 
 static void String_push_register_hex(String *const s, u32 value)
@@ -234,38 +94,45 @@ static void String_push_register_hex(String *const s, u32 value)
     }
 }
 
-bool handle_packet(Context *const ctx, const Packet *const packet)
+[[nodiscard]] String packet_handler(void *const ctx_raw, const Packet *const packet,
+                                    GdbServer *const server, BufSock *const client)
 {
+    Context *const ctx = ctx_raw;
+
     if (packet->data.size == 0)
-        return false;
+        return String_new();
 
     if (packet->data.data[0] == 'q' || packet->data.data[0] == 'Q')
-        return handle_q_packet(ctx, packet);
+        return handle_q_packet(packet, server);
 
     if (packet->data.data[0] == 'v')
-        return handle_v_packet(ctx, packet);
+        return handle_v_packet(packet);
 
     if (packet->data.data[0] == '?')
-        return send_response(ctx, String_from("S05"));
+        return String_from("S05");
 
     if (packet->data.data[0] == 's') {
         Cpu_step(&ctx->cpu);
-        return send_response(ctx, String_from("S05"));
+        return String_from("S05");
     }
 
     if (packet->data.data[0] == 'c') {
-        ctx->running = true;
-        return true;
+        char ch = '\0';
+
+        while (!BufSock_try_read_buf(client, &ch) || ch != 0x03)
+            Cpu_step(&ctx->cpu);
+
+        return String_from("S02");
     }
 
     if (strncmp(packet->data.data, "Hg", 2) == 0)
-        return send_response(ctx, String_from("OK"));
+        return String_from("OK");
 
     if (strncmp(packet->data.data, "Hc", 2) == 0)
-        return send_response(ctx, String_from("OK"));
+        return String_from("OK");
 
     if (strcmp(packet->data.data, "Hc-1") == 0)
-        return send_response(ctx, String_from("OK"));
+        return String_from("OK");
 
     if (packet->data.data[0] == 'm') {
         char *split = nullptr;
@@ -274,7 +141,7 @@ bool handle_packet(Context *const ctx, const Packet *const packet)
         const size_t len = strtol(split + 1, nullptr, 16);
 
         if (addr + len >= CPU_MEMORY_SIZE)
-            return send_response(ctx, String_from("E14"));
+            return String_from("E14");
 
         String s = String_with_capacity(2 * len);
 
@@ -283,9 +150,7 @@ bool handle_packet(Context *const ctx, const Packet *const packet)
             String_push_hex(&s, byte);
         }
 
-        const bool result = send_response(ctx, s);
-
-        return result;
+        return s;
     }
 
     if (packet->data.data[0] == 'g') {
@@ -295,16 +160,15 @@ bool handle_packet(Context *const ctx, const Packet *const packet)
             String_push_register_hex(&s, ctx->cpu.registers[i]);
 
         String_push_register_hex(&s, ctx->cpu.pc);
-
-        return send_response(ctx, s);
+        return s;
     }
 
-    return send_response(ctx, String_new());
+    return String_new();
 }
 
 int main(int argc, const char *argv[])
 {
-    int port = 0;
+    int port = DEFAULT_PORT;
 
     struct argparse_option options[] = {
         OPT_HELP(),
@@ -330,65 +194,47 @@ int main(int argc, const char *argv[])
         port = DEFAULT_PORT;
 
     const char *const filename = argv[0];
-    printf("Opening %s\n", filename);
+    printf("Reading %s\n", filename);
 
-    FILE *const file = fopen(filename, "r");
+    size_t data_size = 0;
+    u8 *data = load_file(filename, &data_size);
 
-    if (file == nullptr) {
-        perror("Could not open file");
-        return EXIT_FAILURE;
-    }
-
-    Cpu cpu = Cpu_new();
-    size_t fread_result = 0;
-
-    if (!Cpu_load_file(&cpu, file, &fread_result)) {
-        fprintf(stderr, "Program is too large\n");
-        return EXIT_FAILURE;
-    }
-
-    if (!fread_result) {
+    if (data == nullptr) {
         perror("Could not read file");
         return EXIT_FAILURE;
     }
 
-    fclose(file);
+    Cpu cpu = Cpu_new();
+    Cpu_load_data(&cpu, 0x0, data, data_size);
 
-    server_sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_sock == -1) {
-        perror("Could not create socket");
+    free(data);
+    data = nullptr;
+
+    Context ctx = {
+        .cpu = cpu,
+    };
+
+    if (!GdbServer_new(packet_handler, &ctx, &server)) {
+        perror("Could not create server");
         return EXIT_FAILURE;
     }
 
-    struct sockaddr_in server_addr = {
-        .sin_family = AF_INET,
-        .sin_addr = {.s_addr = INADDR_ANY},
-        .sin_port = htons(port),
-    };
-
-    setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, nullptr, sizeof(int));
-
-    if (bind(server_sock, (struct sockaddr *)&server_addr, sizeof(server_addr))) {
-        perror("Could not bind server");
+    if (!GdbServer_listen(&server, port)) {
+        perror("Could not bind server to port");
         return EXIT_FAILURE;
     }
 
     atexit(cleanup);
 
-    struct sigaction action = {};
-    action.sa_handler = &sigint_handler;
+    const struct sigaction action = {.sa_handler = &sigint_handler};
     sigaction(SIGINT, &action, &old_action);
-
-    if (listen(server_sock, 10) < 0) {
-        perror("Could not listen");
-        return EXIT_FAILURE;
-    }
 
     printf("Server listening on port %i\n", port);
 
-    struct sockaddr_in client_addr;
+    struct sockaddr_in client_addr = {};
     socklen_t addr_len = 0;
-    client_sock = accept(server_sock, (struct sockaddr *)&client_addr, &addr_len);
+    client_sock = GdbServer_accept_connection(&server, &client_addr, &addr_len);
+
     if (client_sock < 0) {
         perror("Could not accept connection");
         return EXIT_FAILURE;
@@ -396,52 +242,10 @@ int main(int argc, const char *argv[])
 
     printf("Connection from %s\n", inet_ntoa(client_addr.sin_addr));
 
-    Context ctx = {
-        .cpu = cpu,
-        .client_sock = client_sock,
-        .no_ack_mode = false,
-        .running = false,
-    };
-
-    while (true) {
-        if (ctx.running) {
-            Cpu_step(&ctx.cpu);
-
-            char ch = '\0';
-            if (!try_read_buf(ctx.client_sock, &ch) || ch != 0x03)
-                continue;
-
-            send_response(&ctx, String_from("S02"));
-            ctx.running = false;
-        }
-
-        Packet packet = {};
-
-        if (!receive_packet(client_sock, &packet))
-            break;
-
-        if (!ctx.no_ack_mode) {
-            const u8 computed_checksum = data_checksum(&packet.data);
-
-            if (computed_checksum != packet.checksum) {
-                Packet_destroy(&packet);
-                write(client_sock, "-", 1); // NACK
-                continue;
-            }
-        }
-
-        ver_printf("=======================================\n");
-        ver_printf("Packet: '%s'\n", packet.data.data);
-
-        if (!ctx.no_ack_mode)
-            write(client_sock, "+", 1); // ACK
-
-        handle_packet(&ctx, &packet);
-
-        Packet_destroy(&packet);
+    if (!GdbServer_run(&server, client_sock)) {
+        fprintf(stderr, "Something went wrong.\n");
+        return EXIT_FAILURE;
     }
-
-    close(client_sock);
 
     Cpu_destroy(&cpu);
 

@@ -12,7 +12,7 @@ endif()
 
 set(sources
     src/cpu.c
-    src/gdb.c
+    src/protocol.c
     src/macros.c
     src/stdinc.c
     src/str.c

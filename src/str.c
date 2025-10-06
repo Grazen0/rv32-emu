@@ -94,6 +94,13 @@ void String_push_raw(String *const str, const char *const other)
     str->data[str->size] = '\0';
 }
 
+void String_push_hex(String *const str, const u8 byte)
+{
+    char buf[3] = {};
+    sprintf(buf, "%02x", byte);
+    String_push_raw(str, buf);
+}
+
 void String_clear(String *const str)
 {
     free(str->data);
