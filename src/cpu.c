@@ -74,6 +74,7 @@ void Cpu_load_data(Cpu *const cpu, const u32 addr, const u8 *const data, const s
         cpu->memory[addr + i] = data[i];
 }
 
+// NOLINTNEXTLINE
 void Cpu_step(Cpu *const cpu)
 {
     const u32 instr = read_u32_le(cpu->memory, cpu->pc);

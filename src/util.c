@@ -33,7 +33,7 @@ u8 *load_file(const char *const filename, size_t *const file_size)
 
 static bool verbose_mode = false;
 
-void set_verbose_mode(const bool verbose)
+void set_verbose(const bool verbose)
 {
     verbose_mode = verbose;
 }

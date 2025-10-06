@@ -24,8 +24,6 @@ static const char *const usages[] = {
 
 static constexpr u16 DEFAULT_PORT = 3333;
 
-static bool verbose = false;
-
 static GdbServer server = {};
 static int client_sock = -1;
 
@@ -36,7 +34,7 @@ static void cleanup(void)
     if (client_sock >= 0)
         close(client_sock);
 
-    close(server.sock);
+    GdbServer_destroy(&server);
 }
 
 static struct sigaction old_action;
@@ -169,6 +167,7 @@ static void String_push_register_hex(String *const s, u32 value)
 int main(int argc, const char *argv[])
 {
     int port = DEFAULT_PORT;
+    bool verbose = false;
 
     struct argparse_option options[] = {
         OPT_HELP(),
@@ -190,8 +189,7 @@ int main(int argc, const char *argv[])
         return EXIT_FAILURE;
     }
 
-    if (port == 0)
-        port = DEFAULT_PORT;
+    set_verbose(verbose);
 
     const char *const filename = argv[0];
     printf("Reading %s\n", filename);
@@ -220,12 +218,11 @@ int main(int argc, const char *argv[])
     }
 
     if (!GdbServer_listen(&server, port)) {
-        perror("Could not bind server to port");
+        perror("Could not start server");
         return EXIT_FAILURE;
     }
 
     atexit(cleanup);
-
     const struct sigaction action = {.sa_handler = &sigint_handler};
     sigaction(SIGINT, &action, &old_action);
 
@@ -242,8 +239,10 @@ int main(int argc, const char *argv[])
 
     printf("Connection from %s\n", inet_ntoa(client_addr.sin_addr));
 
-    if (!GdbServer_run(&server, client_sock)) {
-        fprintf(stderr, "Something went wrong.\n");
+    const GdbResult result = GdbServer_handle_client(&server, client_sock);
+
+    if (result != GdbResult_Ok) {
+        fprintf(stderr, "Error: %s\n", GdbResult_display(result));
         return EXIT_FAILURE;
     }
 
