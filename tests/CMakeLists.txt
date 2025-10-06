@@ -1,7 +1,7 @@
 enable_testing()
 
 add_library(unity STATIC ${PROJECT_SOURCE_DIR}/external/unity/unity.c)
-target_include_directories(unity PUBLIC ${PROJECT_SOURCE_DIR}/external/unity)
+target_include_directories(unity SYSTEM PUBLIC ${PROJECT_SOURCE_DIR}/external/unity)
 
 set(test_sources test_str.c)
 

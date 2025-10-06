@@ -4,11 +4,7 @@ project(rv32_emu LANGUAGES C VERSION 0.1.0)
 set(CMAKE_C_STANDARD 23)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-if(MSVC)
-  add_compile_options(/W4)
-else()
-  add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
+set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
 
 set(sources
     src/cpu.c
@@ -19,10 +15,19 @@ set(sources
     src/util.c)
 
 add_library(argparse STATIC external/argparse/argparse.c)
-target_include_directories(argparse PUBLIC external/argparse)
+target_include_directories(argparse SYSTEM PUBLIC external/argparse)
 
 add_library(rv32_emu_lib ${sources})
 target_include_directories(rv32_emu_lib PUBLIC src)
+
+set(GCC_LIKE $<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>)
+
+target_compile_options(rv32_emu_lib PUBLIC
+    $<$<BOOL:${GCC_LIKE}>:-Wall>
+    $<$<BOOL:${GCC_LIKE}>:-Wextra>
+    $<$<BOOL:${GCC_LIKE}>:-Wpedantic>
+    $<$<BOOL:${GCC_LIKE}>:-Wconversion>
+    $<$<CXX_COMPILER_ID:MSVC>:/W4>)
 
 add_executable(rv32_emu src/main.c)
 set_target_properties(rv32_emu PROPERTIES OUTPUT_NAME "rv32-emu")
