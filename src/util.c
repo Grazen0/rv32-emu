@@ -1,4 +1,5 @@
 #include "util.h"
+#include "stdinc.h"
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>

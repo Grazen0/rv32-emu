@@ -1,7 +1,9 @@
 {
   stdenv,
   lib,
+
   cmake,
+  clang-tools,
   ruby,
 }:
 stdenv.mkDerivation (finalAttrs: {
@@ -11,6 +13,7 @@ stdenv.mkDerivation (finalAttrs: {
   src = lib.cleanSource ./.;
 
   nativeBuildInputs = [
+    clang-tools
     cmake
     ruby
   ];

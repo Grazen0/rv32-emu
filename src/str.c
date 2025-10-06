@@ -1,7 +1,9 @@
 #include "str.h"
 #include "macros.h"
+#include "stdinc.h"
 #include "util.h"
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -97,7 +99,7 @@ void String_push_raw(String *const str, const char *const other)
 void String_push_hex(String *const str, const u8 byte)
 {
     char buf[3] = {};
-    sprintf(buf, "%02x", byte);
+    snprintf(buf, sizeof(buf), "%02x", byte);
     String_push_raw(str, buf);
 }
 

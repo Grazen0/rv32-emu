@@ -240,7 +240,8 @@ bool GdbServer_new(const PacketHandler handler, void *const ctx, GdbServer *cons
     if (server_sock == -1)
         return false;
 
-    setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, nullptr, sizeof(int));
+    const int yes = true;
+    setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 
     *out = (GdbServer){
         .sock = server_sock,
