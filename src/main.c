@@ -99,6 +99,69 @@ static void String_push_register_hex(String *const s, u32 value)
     }
 }
 
+[[nodiscard]] static String handle_read_mem(Context *const ctx, const Packet *const packet)
+{
+    char *split = nullptr;
+
+    const u32 addr = strtol(&packet->data.data[1], &split, 16);
+    const size_t len = strtol(split + 1, nullptr, 16);
+
+    if (addr + len >= CPU_MEMORY_SIZE)
+        return String_from("E14");
+    String s = String_with_capacity(2 * len);
+
+    for (size_t i = 0; i < len; ++i) {
+        const u8 byte = ctx->cpu.memory[addr + i];
+        String_push_hex(&s, byte);
+    }
+
+    return s;
+}
+
+[[nodiscard]] static String handle_write_mem(Context *const ctx, const Packet *const packet)
+{
+    char *split_1 = nullptr;
+    char *split_2 = nullptr;
+
+    const u32 addr = strtol(&packet->data.data[1], &split_1, 16);
+    const size_t len = strtol(split_1 + 1, &split_2, 16);
+
+    const char *const byte_data = split_2 + 1;
+
+    if (2 * len != strlen(byte_data))
+        return String_from("E01"); // Bad packet
+
+    if (addr + len >= CPU_MEMORY_SIZE)
+        return String_from("E14"); // Bad address
+
+    for (size_t i = 0; i < len; ++i) {
+        char buf[3] = {};
+        memcpy(buf, byte_data + (2 * i), 2);
+
+        const u8 byte = strtol(buf, nullptr, 16);
+        ctx->cpu.memory[addr + i] = byte;
+    }
+
+    return String_from("OK");
+}
+
+[[nodiscard]] static String handle_continue(Context *const ctx, BufSock *const client)
+{
+    char ch = '\0';
+
+    while (!BufSock_try_read_buf(client, &ch) || ch != 0x03) {
+        const CpuStepResult result = Cpu_step(&ctx->cpu);
+
+        if (result == CpuStepResult_IllegalInstruction)
+            return String_from("S04"); // SIGILL
+
+        if (result == CpuStepResult_Break)
+            return String_from("S05"); // SIGTRAP
+    }
+
+    return String_from("S02");
+}
+
 [[nodiscard]] static String packet_handler(void *const ctx_raw, const Packet *const packet,
                                            GdbServer *const server, BufSock *const client)
 {
@@ -121,14 +184,8 @@ static void String_push_register_hex(String *const s, u32 value)
         return String_from("S05");
     }
 
-    if (packet->data.data[0] == 'c') {
-        char ch = '\0';
-
-        while (!BufSock_try_read_buf(client, &ch) || ch != 0x03)
-            Cpu_step(&ctx->cpu);
-
-        return String_from("S02");
-    }
+    if (packet->data.data[0] == 'c')
+        return handle_continue(ctx, client);
 
     if (strncmp(packet->data.data, "Hg", 2) == 0)
         return String_from("OK");
@@ -139,24 +196,11 @@ static void String_push_register_hex(String *const s, u32 value)
     if (strcmp(packet->data.data, "Hc-1") == 0)
         return String_from("OK");
 
-    if (packet->data.data[0] == 'm') {
-        char *split = nullptr;
+    if (packet->data.data[0] == 'm')
+        return handle_read_mem(ctx, packet);
 
-        const u32 addr = strtol(&packet->data.data[1], &split, 16);
-        const size_t len = strtol(split + 1, nullptr, 16);
-
-        if (addr + len >= CPU_MEMORY_SIZE)
-            return String_from("E14");
-
-        String s = String_with_capacity(2 * len);
-
-        for (size_t i = 0; i < len; ++i) {
-            const u8 byte = ctx->cpu.memory[addr + i];
-            String_push_hex(&s, byte);
-        }
-
-        return s;
-    }
+    if (packet->data.data[0] == 'M')
+        return handle_write_mem(ctx, packet);
 
     if (packet->data.data[0] == 'g') {
         String s = String_with_capacity(8L * (CPU_REGS_SIZE + 1L));

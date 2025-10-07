@@ -65,7 +65,7 @@ void Cpu_destroy(Cpu *const cpu)
 }
 
 // NOLINTNEXTLINE
-void Cpu_step(Cpu *const cpu)
+CpuStepResult Cpu_step(Cpu *const cpu)
 {
     const u32 instr = read_u32_le(cpu->memory, cpu->pc);
     u32 new_pc = cpu->pc + 4;
@@ -101,7 +101,7 @@ void Cpu_step(Cpu *const cpu)
             cpu->registers[rd] = read_u16_le(cpu->memory, addr);
             break;
         default:
-            BAIL("illegal instruction: 0x%08X", instr);
+            return CpuStepResult_IllegalInstruction;
         }
         break;
     }
@@ -130,7 +130,7 @@ void Cpu_step(Cpu *const cpu)
             else if (funct7 == 0b010'0000)
                 cpu->registers[rd] = (u32)((i32)cpu->registers[rs1] >> shamt);
             else
-                BAIL("illegal instruction: 0x%08X", instr);
+                return CpuStepResult_IllegalInstruction;
             break;
         case 0b110:
             cpu->registers[rd] = cpu->registers[rs1] | imm_i;
@@ -139,7 +139,7 @@ void Cpu_step(Cpu *const cpu)
             cpu->registers[rd] = cpu->registers[rs1] & imm_i;
             break;
         default:
-            BAIL("illegal instruction: 0x%08X", instr);
+            return CpuStepResult_IllegalInstruction;
         }
         break;
     }
@@ -161,7 +161,7 @@ void Cpu_step(Cpu *const cpu)
             write_u32_le(cpu->memory, addr, cpu->registers[rs2]);
             break;
         default:
-            BAIL("illegal instruction: 0x%08X", instr);
+            return CpuStepResult_IllegalInstruction;
         }
         break;
     }
@@ -175,7 +175,7 @@ void Cpu_step(Cpu *const cpu)
             else if (funct7 == 0b010'0000)
                 cpu->registers[rd] = cpu->registers[rs1] - cpu->registers[rs2];
             else
-                BAIL("illegal instruction: 0x%08X", instr);
+                return CpuStepResult_IllegalInstruction;
             break;
         case 0b001:
             cpu->registers[rd] = cpu->registers[rs1] << shamt;
@@ -195,7 +195,7 @@ void Cpu_step(Cpu *const cpu)
             else if (funct7 == 0b010'0000)
                 cpu->registers[rd] = (u32)((i32)cpu->registers[rs1] >> shamt);
             else
-                BAIL("illegal instruction: 0x%08X", instr);
+                return CpuStepResult_IllegalInstruction;
             break;
         case 0b110:
             cpu->registers[rd] = cpu->registers[rs1] | cpu->registers[rs2];
@@ -204,7 +204,7 @@ void Cpu_step(Cpu *const cpu)
             cpu->registers[rd] = cpu->registers[rs1] & cpu->registers[rs2];
             break;
         default:
-            BAIL("illegal instruction: 0x%08X", instr);
+            return CpuStepResult_IllegalInstruction;
         }
         break;
     }
@@ -241,7 +241,7 @@ void Cpu_step(Cpu *const cpu)
                 new_pc = cpu->pc + imm_b;
             break;
         default:
-            BAIL("illegal instruction: 0x%08X", instr);
+            return CpuStepResult_IllegalInstruction;
         }
         break;
     }
@@ -251,7 +251,7 @@ void Cpu_step(Cpu *const cpu)
         if (funct3 == 0b000)
             new_pc = (cpu->registers[rs1] + imm_i) & ~1;
         else
-            BAIL("illegal instruction: 0x%08X", instr);
+            return CpuStepResult_IllegalInstruction;
 
         break;
     case 0b110'1111: {
@@ -262,10 +262,17 @@ void Cpu_step(Cpu *const cpu)
         new_pc = cpu->pc + imm_j;
         break;
     }
+    case 0b111'0011:
+        if (funct3 == 0 && imm_i == 1)
+            return CpuStepResult_Break;
+
+        return CpuStepResult_IllegalInstruction;
     default:
-        BAIL("illegal instruction: 0x%08X", instr);
+        return CpuStepResult_IllegalInstruction;
     }
 
     cpu->pc = new_pc;
     cpu->registers[0] = 0;
+
+    return CpuStepResult_None;
 }

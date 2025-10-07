@@ -14,10 +14,16 @@ typedef struct Cpu {
     u8 *memory;
 } Cpu;
 
+typedef enum CpuStepResult {
+    CpuStepResult_None,
+    CpuStepResult_Break,
+    CpuStepResult_IllegalInstruction,
+} CpuStepResult;
+
 Cpu Cpu_new(void);
 
 void Cpu_destroy(Cpu *cpu);
 
-void Cpu_step(Cpu *cpu);
+CpuStepResult Cpu_step(Cpu *cpu);
 
 #endif

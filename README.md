@@ -15,7 +15,7 @@ CPUlator's insanely simple system specs (all RAM, even the program data).
 - [x] RV32I integer instructions.
 - [x] ~~RV64I extra integer instructions.~~ I'm probably sticking to 32 bits.
 - [ ] RVF/D floating-point instructions.
-- [ ] Breakpoint support.
+- [x] Breakpoint support.
 - [x] ELF file support.
 - [x] GDB support.
 
