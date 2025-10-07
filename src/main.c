@@ -203,8 +203,8 @@ int main(int argc, const char *argv[])
         return EXIT_FAILURE;
     }
 
-    const Elf32_Ehdr *ehdr = {};
-    const Elf32_Phdr *phdrs = {};
+    const Elf32_Ehdr *ehdr = nullptr;
+    const Elf32_Phdr *phdrs = nullptr;
 
     const ElfResult elf_result = parse_elf(elf_data, elf_data_size, &ehdr, &phdrs);
     if (elf_result != ElfResult_Ok) {
