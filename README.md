@@ -10,18 +10,13 @@ solution using the GCC RISC-V toolchain and whatnot. What I needed was an
 **emulator**, but I wasn't able to find any easy-to-use emulator that mimmicked
 CPUlator's insanely simple system specs (all RAM, even the program data).
 
-> [!NOTE]
-> As of right now, this emulator only supports raw binary files, not ELFs. That
-> means that you must run something like `objcopy -O binary` on your ELF and use
-> _that_ on this emulator.
-
 ## Features
 
 - [x] RV32I integer instructions.
 - [ ] RV64I extra integer instructions.
 - [ ] RVF/D floating-point instructions.
 - [ ] Breakpoint support.
-- [ ] ELF file support.
+- [x] ELF file support.
 - [x] GDB support.
 
 ## Building
