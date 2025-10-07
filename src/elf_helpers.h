@@ -56,6 +56,21 @@ typedef enum ElfResult {
 [[nodiscard]] ElfResult parse_elf(const u8 *elf_data, size_t elf_data_size,
                                   const Elf32_Ehdr **out_ehdr, const Elf32_Phdr **out_phdrs);
 
+/**
+ * \brief Loads a program section into dest.
+ *
+ * Will load the data pointed to by the program header at phdr into the address space starting at
+ * dest.
+ *
+ * \param dest The address space to load data into.
+ * \param dest_size Size of dest.
+ * \param phdr The program header whose data is to be loaded.
+ * \param phdr_n Index of phdr in the phdrs list.
+ * \param elf_data Full binary data of the phdr's ELF file.
+ * \param elf_data_size Size of elf_data
+ *
+ * \return The result of the operation.
+ */
 [[nodiscard]] ElfResult load_phdr(u8 *dest, size_t dest_size, const Elf32_Phdr *phdr, size_t phdr_n,
                                   const u8 *elf_data, size_t elf_data_size);
 
