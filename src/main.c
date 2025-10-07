@@ -52,6 +52,11 @@ typedef struct Context {
     Cpu cpu;
 } Context;
 
+static void Context_destroy(Context *const ctx)
+{
+    Cpu_destroy(&ctx->cpu);
+}
+
 [[nodiscard]] static String handle_q_packet(const Packet *const packet, GdbServer *const server)
 {
     if (strncmp(packet->data.data, "qSupported", strlen("qSupported")) == 0)
@@ -94,8 +99,8 @@ static void String_push_register_hex(String *const s, u32 value)
     }
 }
 
-[[nodiscard]] String packet_handler(void *const ctx_raw, const Packet *const packet,
-                                    GdbServer *const server, BufSock *const client)
+[[nodiscard]] static String packet_handler(void *const ctx_raw, const Packet *const packet,
+                                           GdbServer *const server, BufSock *const client)
 {
     Context *const ctx = ctx_raw;
 
@@ -166,6 +171,53 @@ static void String_push_register_hex(String *const s, u32 value)
     return String_new();
 }
 
+static bool load_elf_to_cpu(const char *const filename, Cpu *const cpu)
+{
+    printf("Reading %s\n", filename);
+
+    size_t elf_data_size = 0;
+    u8 *elf_data = load_file(filename, &elf_data_size);
+
+    if (elf_data == nullptr) {
+        perror("Could not read file");
+        return false;
+    }
+
+    const Elf32_Ehdr *ehdr = nullptr;
+    const Elf32_Phdr *phdrs = nullptr;
+
+    const ElfResult elf_result = parse_elf(elf_data, elf_data_size, &ehdr, &phdrs);
+
+    if (elf_result != ElfResult_Ok) {
+        fprintf(stderr, "Could not load ELF: %s\n", ElfResult_display(elf_result));
+        return false;
+    }
+
+    printf("Loading program...\n");
+    ver_printf("\n");
+
+    cpu->pc = ehdr->e_entry;
+
+    for (size_t i = 0; i < ehdr->e_phnum; ++i) {
+        const Elf32_Phdr *const phdr = &phdrs[i];
+        print_phdr_debug(phdrs, i, elf_data, elf_data_size);
+
+        if (phdr->p_type == PT_LOAD) {
+            const ElfResult result =
+                load_phdr(cpu->memory, CPU_MEMORY_SIZE, phdr, i, elf_data, elf_data_size);
+
+            if (result != ElfResult_Ok) {
+                fprintf(stderr, "Could not load an ELF program header: %s\n",
+                        ElfResult_display(result));
+                return EXIT_FAILURE;
+            }
+        }
+    }
+
+    free(elf_data);
+    return true;
+}
+
 int main(int argc, const char *argv[])
 {
     int port = DEFAULT_PORT;
@@ -193,62 +245,11 @@ int main(int argc, const char *argv[])
     }
 
     const char *const filename = argv[0];
-    printf("Reading %s\n", filename);
-
-    size_t elf_data_size = 0;
-    u8 *elf_data = load_file(filename, &elf_data_size);
-
-    if (elf_data == nullptr) {
-        perror("Could not read file");
-        return EXIT_FAILURE;
-    }
-
-    const Elf32_Ehdr *ehdr = nullptr;
-    const Elf32_Phdr *phdrs = nullptr;
-
-    const ElfResult elf_result = parse_elf(elf_data, elf_data_size, &ehdr, &phdrs);
-    if (elf_result != ElfResult_Ok) {
-        fprintf(stderr, "Could not load ELF: %s\n", ElfResult_display(elf_result));
-        return EXIT_FAILURE;
-    }
-
-    printf("Loading program...\n");
 
     Cpu cpu = Cpu_new();
-    cpu.pc = ehdr->e_entry;
 
-    for (size_t i = 0; i < ehdr->e_phnum; ++i) {
-        ver_printf("Header %zu ==============================\n", i + 1);
-        const Elf32_Phdr *const phdr = &phdrs[i];
-
-        ver_printf("type:    0x%02X\n", phdr->p_type);
-        ver_printf("flags:   0b%03B\n", phdr->p_flags);
-        ver_printf("offset:  0x%02X\n", phdr->p_offset);
-        ver_printf("vaddr:   0x%02X\n", phdr->p_vaddr);
-        ver_printf("paddr:   0x%02X\n", phdr->p_paddr);
-        ver_printf("filesz:  0x%02X\n", phdr->p_filesz);
-        ver_printf("memsz:   0x%02X\n", phdr->p_memsz);
-        ver_printf("align:   0x%02X\n", phdr->p_align);
-        ver_printf("align:   0x%02X\n", phdr->p_align);
-        ver_printf("\n");
-
-        if (phdr->p_filesz != 0) {
-            for (size_t i = 0; i < phdr->p_filesz; ++i) {
-                ver_printf("%02X ", elf_data[phdr->p_offset + i]);
-
-                if ((i % 16) == 15 || i == phdr->p_filesz - 1)
-                    ver_printf("\n");
-            }
-
-            ver_printf("\n");
-        }
-
-        if (phdr->p_type == PT_LOAD)
-            memcpy(&cpu.memory[phdr->p_vaddr], &elf_data[phdr->p_offset], phdr->p_filesz);
-    }
-
-    free(elf_data);
-    elf_data = nullptr;
+    if (!load_elf_to_cpu(filename, &cpu))
+        return EXIT_FAILURE;
 
     Context ctx = {
         .cpu = cpu,
@@ -288,7 +289,7 @@ int main(int argc, const char *argv[])
         return EXIT_FAILURE;
     }
 
-    Cpu_destroy(&cpu);
+    Context_destroy(&ctx);
 
     return EXIT_SUCCESS;
 }

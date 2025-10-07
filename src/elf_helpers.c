@@ -1,4 +1,5 @@
 #include "elf_helpers.h"
+#include "macros.h"
 #include "util.h"
 #include <elf.h>
 #include <stddef.h>
@@ -29,8 +30,14 @@ const char *ElfResult_display(const ElfResult result)
         return "Invalid program header size.";
     case ElfResult_InvalidSectionHeaderSize:
         return "Invalid section header size.";
+    case ElfResult_UnalignedVAddr:
+        return "p_vaddr of not aligned properly";
+    case ElfResult_ProgramDataFileOutOfBounds:
+        return "File data exceeds ELF file size.";
+    case ElfResult_ProgramDataVAddrOutOfBounds:
+        return "Virtual address range exceeds target memory bounds.";
     default:
-        return "Invalid ElfResult.";
+        BAIL("Invalid ElfResult.");
     }
 }
 
@@ -68,15 +75,11 @@ ElfResult parse_elf(const u8 *const elf_data, const size_t elf_data_size,
     if (ehdr->e_ident[EI_VERSION] != EV_CURRENT)
         return ElfResult_InvalidElfVersion;
 
-    if (ehdr->e_ident[EI_OSABI] != ELFOSABI_NONE) {
-        printf("Warning: Unsupported ELF OSABI (0x%02X), continuing anyway.\n",
-               ehdr->e_ident[EI_OSABI]);
-    }
+    if (ehdr->e_ident[EI_OSABI] != ELFOSABI_NONE)
+        printf("Warning: Unsupported ELF OSABI (0x%02X).\n", ehdr->e_ident[EI_OSABI]);
 
-    if (ehdr->e_ident[EI_ABIVERSION] != 0x00) {
-        printf("Warning: Unsupported ELF ABIVERSION (0x%02X), continuing anyway.\n",
-               ehdr->e_ident[EI_ABIVERSION]);
-    }
+    if (ehdr->e_ident[EI_ABIVERSION] != 0x00)
+        printf("Warning: Unsupported ELF ABIVERSION (0x%02X).\n", ehdr->e_ident[EI_ABIVERSION]);
 
     if (ehdr->e_type != ET_EXEC)
         return ElfResult_UnsupportedElfType;
@@ -90,8 +93,6 @@ ElfResult parse_elf(const u8 *const elf_data, const size_t elf_data_size,
     if (ehdr->e_flags != 0)
         printf("Warning: Ignoring non-zero flags in ELF header.\n");
 
-    ver_printf("\n");
-
     if (elf_data_size < ehdr->e_phoff + (ehdr->e_phnum * ehdr->e_phentsize))
         return ElfResult_FileTooSmall;
 
@@ -101,4 +102,72 @@ ElfResult parse_elf(const u8 *const elf_data, const size_t elf_data_size,
     *out_phdrs = phdrs;
 
     return ElfResult_Ok;
+}
+
+ElfResult load_phdr(u8 *const dest, const size_t dest_size, const Elf32_Phdr *const phdr,
+                    const size_t phdr_n, const u8 *const elf_data, const size_t elf_data_size)
+{
+    ver_printf("Loading phdr[%zu] into memory.\n", phdr_n);
+
+    if (phdr->p_align > 1) {
+        if (!u32_is_pow2(phdr->p_align))
+            printf("Warning(phdrs[%zu]): p_align of is not a power of 2.\n", phdr_n);
+
+        if ((phdr->p_vaddr % phdr->p_align) != (phdr->p_offset % phdr->p_align))
+            return ElfResult_UnalignedVAddr;
+    }
+
+    if ((phdr->p_flags & PF_R) == 0 || (phdr->p_flags & PF_W) == 0 || (phdr->p_flags & PF_X) == 0) {
+        printf("Warning(phdrs[%zu]): Ignoring access flags (0b%03B).\n", phdr_n, phdr->p_flags);
+    }
+
+    if (phdr->p_paddr != phdr->p_vaddr) {
+        printf("Warning (phdrs[%zu]): Ignoring p_addr value of %X different to p_vaddr.\n", phdr_n,
+               phdr->p_paddr);
+    }
+
+    if (phdr->p_memsz != phdr->p_filesz)
+        printf("Warning (phdrs[%zu]): p_memsz different from p_filesz.\n", phdr_n);
+
+    if (phdr->p_offset + phdr->p_filesz > elf_data_size) {
+        return ElfResult_ProgramDataFileOutOfBounds;
+    }
+
+    if ((size_t)phdr->p_vaddr + phdr->p_memsz > dest_size) {
+        return ElfResult_ProgramDataVAddrOutOfBounds;
+    }
+
+    memcpy(&dest[phdr->p_vaddr], &elf_data[phdr->p_offset], phdr->p_filesz);
+    return ElfResult_Ok;
+}
+
+void print_phdr_debug(const Elf32_Phdr *const phdr, const size_t phdr_n, const u8 *const elf_data,
+                      const size_t elf_data_size)
+{
+    ver_printf("phdrs[%zu] ====================================\n", phdr_n);
+    ver_printf("type:    0x%02X\n", phdr->p_type);
+    ver_printf("flags:   0b%03B\n", phdr->p_flags);
+    ver_printf("offset:  0x%02X\n", phdr->p_offset);
+    ver_printf("vaddr:   0x%02X\n", phdr->p_vaddr);
+    ver_printf("paddr:   0x%02X\n", phdr->p_paddr);
+    ver_printf("filesz:  0x%02X\n", phdr->p_filesz);
+    ver_printf("memsz:   0x%02X\n", phdr->p_memsz);
+    ver_printf("align:   0x%02X\n", phdr->p_align);
+    ver_printf("\n");
+
+    if (phdr->p_filesz != 0) {
+        if (phdr->p_offset + phdr->p_filesz > elf_data_size) {
+            printf("(Data out of bounds)\n");
+        } else {
+            // Dump data
+            for (size_t i = 0; i < phdr->p_filesz; ++i) {
+                ver_printf("%02X ", elf_data[phdr->p_offset + i]);
+
+                if ((i % 16) == 15 || i == phdr->p_filesz - 1)
+                    ver_printf("\n");
+            }
+        }
+
+        ver_printf("\n");
+    }
 }

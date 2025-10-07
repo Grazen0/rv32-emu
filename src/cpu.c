@@ -2,13 +2,12 @@
 #include "macros.h"
 #include "stdinc.h"
 #include <stddef.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 [[nodiscard]] static u32 read_u32_le(const u8 *const memory, const u32 addr)
 {
     if (addr > CPU_MEMORY_SIZE - 4)
-        BAIL("memory index out of bounds: 0x%08X\n", addr);
+        BAIL("memory index out of bounds: 0x%08X", addr);
 
     const u32 a = memory[addr];
     const u32 b = memory[addr + 1];
@@ -21,7 +20,7 @@
 [[nodiscard]] static u16 read_u16_le(const u8 *const memory, const u32 addr)
 {
     if (addr > CPU_MEMORY_SIZE - 2)
-        BAIL("memory index out of bounds: 0x%08X\n", addr);
+        BAIL("memory index out of bounds: 0x%08X", addr);
 
     const u16 a = memory[addr];
     const u16 b = memory[addr + 1];
@@ -32,7 +31,7 @@
 static void write_u32_le(u8 *const memory, const u32 addr, const u32 value)
 {
     if (addr > CPU_MEMORY_SIZE - 4)
-        BAIL("memory index out of bounds: 0x%08X\n", addr);
+        BAIL("memory index out of bounds: 0x%08X", addr);
 
     memory[addr] = (u8)value;
     memory[addr + 1] = (u8)(value >> 8);
@@ -43,7 +42,7 @@ static void write_u32_le(u8 *const memory, const u32 addr, const u32 value)
 static void write_u16_le(u8 *const memory, const u32 addr, const u16 value)
 {
     if (addr > CPU_MEMORY_SIZE - 2)
-        BAIL("memory index out of bounds: 0x%08X\n", addr);
+        BAIL("memory index out of bounds: 0x%08X", addr);
 
     memory[addr] = (u8)value;
     memory[addr + 1] = (u8)(value >> 8);
@@ -102,7 +101,7 @@ void Cpu_step(Cpu *const cpu)
             cpu->registers[rd] = read_u16_le(cpu->memory, addr);
             break;
         default:
-            BAIL("illegal instruction: 0x%08X\n", instr);
+            BAIL("illegal instruction: 0x%08X", instr);
         }
         break;
     }
@@ -131,7 +130,7 @@ void Cpu_step(Cpu *const cpu)
             else if (funct7 == 0b010'0000)
                 cpu->registers[rd] = (u32)((i32)cpu->registers[rs1] >> shamt);
             else
-                BAIL("illegal instruction: 0x%08X\n", instr);
+                BAIL("illegal instruction: 0x%08X", instr);
             break;
         case 0b110:
             cpu->registers[rd] = cpu->registers[rs1] | imm_i;
@@ -140,7 +139,7 @@ void Cpu_step(Cpu *const cpu)
             cpu->registers[rd] = cpu->registers[rs1] & imm_i;
             break;
         default:
-            BAIL("illegal instruction: 0x%08X\n", instr);
+            BAIL("illegal instruction: 0x%08X", instr);
         }
         break;
     }
@@ -162,7 +161,7 @@ void Cpu_step(Cpu *const cpu)
             write_u32_le(cpu->memory, addr, cpu->registers[rs2]);
             break;
         default:
-            BAIL("illegal instruction: 0x%08X\n", instr);
+            BAIL("illegal instruction: 0x%08X", instr);
         }
         break;
     }
@@ -176,7 +175,7 @@ void Cpu_step(Cpu *const cpu)
             else if (funct7 == 0b010'0000)
                 cpu->registers[rd] = cpu->registers[rs1] - cpu->registers[rs2];
             else
-                BAIL("illegal instruction: 0x%08X\n", instr);
+                BAIL("illegal instruction: 0x%08X", instr);
             break;
         case 0b001:
             cpu->registers[rd] = cpu->registers[rs1] << shamt;
@@ -196,7 +195,7 @@ void Cpu_step(Cpu *const cpu)
             else if (funct7 == 0b010'0000)
                 cpu->registers[rd] = (u32)((i32)cpu->registers[rs1] >> shamt);
             else
-                BAIL("illegal instruction: 0x%08X\n", instr);
+                BAIL("illegal instruction: 0x%08X", instr);
             break;
         case 0b110:
             cpu->registers[rd] = cpu->registers[rs1] | cpu->registers[rs2];
@@ -205,7 +204,7 @@ void Cpu_step(Cpu *const cpu)
             cpu->registers[rd] = cpu->registers[rs1] & cpu->registers[rs2];
             break;
         default:
-            BAIL("illegal instruction: 0x%08X\n", instr);
+            BAIL("illegal instruction: 0x%08X", instr);
         }
         break;
     }
@@ -242,7 +241,7 @@ void Cpu_step(Cpu *const cpu)
                 new_pc = cpu->pc + imm_b;
             break;
         default:
-            BAIL("illegal instruction: 0x%08X\n", instr);
+            BAIL("illegal instruction: 0x%08X", instr);
         }
         break;
     }
@@ -252,11 +251,10 @@ void Cpu_step(Cpu *const cpu)
         if (funct3 == 0b000)
             new_pc = (cpu->registers[rs1] + imm_i) & ~1;
         else
-            BAIL("illegal instruction: 0x%08X\n", instr);
+            BAIL("illegal instruction: 0x%08X", instr);
 
         break;
     case 0b110'1111: {
-
         const i32 imm_j = (i32)((((instr >> 21) & 0x3FF) << 1) | (((instr >> 20) & 0x1) << 11) |
                                 (((instr >> 12) & 0xFF) << 12) | (((i32)instr >> 31) << 20));
 
@@ -265,7 +263,7 @@ void Cpu_step(Cpu *const cpu)
         break;
     }
     default:
-        BAIL("illegal instruction: 0x%08X\n", instr);
+        BAIL("illegal instruction: 0x%08X", instr);
     }
 
     cpu->pc = new_pc;
