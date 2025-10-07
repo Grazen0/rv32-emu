@@ -1,4 +1,6 @@
 #include "cpu.h"
+#include "elf.h"
+#include "elf_helpers.h"
 #include "protocol.h"
 #include "stdinc.h"
 #include "str.h"
@@ -183,30 +185,70 @@ int main(int argc, const char *argv[])
                       nullptr);
 
     argc = argparse_parse(&argparse, argc, argv);
+    set_verbose(verbose);
 
     if (argc < 1) {
         argparse_usage(&argparse);
         return EXIT_FAILURE;
     }
 
-    set_verbose(verbose);
-
     const char *const filename = argv[0];
     printf("Reading %s\n", filename);
 
-    size_t data_size = 0;
-    u8 *data = load_file(filename, &data_size);
+    size_t elf_data_size = 0;
+    u8 *elf_data = load_file(filename, &elf_data_size);
 
-    if (data == nullptr) {
+    if (elf_data == nullptr) {
         perror("Could not read file");
         return EXIT_FAILURE;
     }
 
-    Cpu cpu = Cpu_new();
-    Cpu_load_data(&cpu, 0x0, data, data_size);
+    const Elf32_Ehdr *ehdr = {};
+    const Elf32_Phdr *phdrs = {};
 
-    free(data);
-    data = nullptr;
+    const ElfResult elf_result = parse_elf(elf_data, elf_data_size, &ehdr, &phdrs);
+    if (elf_result != ElfResult_Ok) {
+        fprintf(stderr, "Could not load ELF: %s\n", ElfResult_display(elf_result));
+        return EXIT_FAILURE;
+    }
+
+    printf("Loading program...\n");
+
+    Cpu cpu = Cpu_new();
+    cpu.pc = ehdr->e_entry;
+
+    for (size_t i = 0; i < ehdr->e_phnum; ++i) {
+        ver_printf("Header %zu ==============================\n", i + 1);
+        const Elf32_Phdr *const phdr = &phdrs[i];
+
+        ver_printf("type:    0x%02X\n", phdr->p_type);
+        ver_printf("flags:   0b%03B\n", phdr->p_flags);
+        ver_printf("offset:  0x%02X\n", phdr->p_offset);
+        ver_printf("vaddr:   0x%02X\n", phdr->p_vaddr);
+        ver_printf("paddr:   0x%02X\n", phdr->p_paddr);
+        ver_printf("filesz:  0x%02X\n", phdr->p_filesz);
+        ver_printf("memsz:   0x%02X\n", phdr->p_memsz);
+        ver_printf("align:   0x%02X\n", phdr->p_align);
+        ver_printf("align:   0x%02X\n", phdr->p_align);
+        ver_printf("\n");
+
+        if (phdr->p_filesz != 0) {
+            for (size_t i = 0; i < phdr->p_filesz; ++i) {
+                ver_printf("%02X ", elf_data[phdr->p_offset + i]);
+
+                if ((i % 16) == 15 || i == phdr->p_filesz - 1)
+                    ver_printf("\n");
+            }
+
+            ver_printf("\n");
+        }
+
+        if (phdr->p_type == PT_LOAD)
+            memcpy(&cpu.memory[phdr->p_vaddr], &elf_data[phdr->p_offset], phdr->p_filesz);
+    }
+
+    free(elf_data);
+    elf_data = nullptr;
 
     Context ctx = {
         .cpu = cpu,

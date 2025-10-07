@@ -65,15 +65,6 @@ void Cpu_destroy(Cpu *const cpu)
     free(cpu->memory);
 }
 
-void Cpu_load_data(Cpu *const cpu, const u32 addr, const u8 *const data, const size_t data_size)
-{
-    if (addr + data_size >= CPU_MEMORY_SIZE)
-        BAIL("Data is too large.");
-
-    for (size_t i = 0; i < data_size; ++i)
-        cpu->memory[addr + i] = data[i];
-}
-
 // NOLINTNEXTLINE
 void Cpu_step(Cpu *const cpu)
 {

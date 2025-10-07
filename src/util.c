@@ -12,7 +12,7 @@ size_t sz_max(const size_t a, const size_t b)
 
 u8 *load_file(const char *const filename, size_t *const file_size)
 {
-    FILE *const file = fopen(filename, "r");
+    FILE *const file = fopen(filename, "rb");
 
     if (file == nullptr)
         return nullptr;

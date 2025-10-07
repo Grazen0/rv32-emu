@@ -19,10 +19,10 @@
  *
  * Returns a dynamic array that must be freed with free().
  *
- * \param filename path of the file to read
- * \param file_size out param for the size of the file read
+ * \param filename Path of the file to read.
+ * \param file_size Out param for the size of the file read.
  *
- * \return the file data in bytes, or NULL if something went wrong
+ * \return the file data in bytes, or NULL if something went wrong.
  */
 [[nodiscard]] u8 *load_file(const char *filename, size_t *file_size);
 

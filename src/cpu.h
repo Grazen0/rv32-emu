@@ -18,8 +18,6 @@ Cpu Cpu_new(void);
 
 void Cpu_destroy(Cpu *cpu);
 
-void Cpu_load_data(Cpu *cpu, u32 addr, const u8 *data, size_t data_size);
-
 void Cpu_step(Cpu *cpu);
 
 #endif

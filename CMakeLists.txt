@@ -9,6 +9,7 @@ set(GCC_LIKE $<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_C
 
 set(sources
     src/cpu.c
+    src/elf_helpers.c
     src/protocol.c
     src/macros.c
     src/stdinc.c
