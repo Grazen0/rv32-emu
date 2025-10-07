@@ -20,6 +20,7 @@ CPUlator's insanely simple system specs (all RAM, even the program data).
 - [x] RV32I integer instructions.
 - [ ] RV64I extra integer instructions.
 - [ ] RVF/D floating-point instructions.
+- [ ] Breakpoint support.
 - [ ] ELF file support.
 - [x] GDB support.
 
