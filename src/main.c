@@ -50,11 +50,24 @@ static void sigint_handler([[maybe_unused]] const int sig_no)
 
 typedef struct Context {
     Cpu cpu;
+    String stop_signal;
 } Context;
 
 static void Context_destroy(Context *const ctx)
 {
     Cpu_destroy(&ctx->cpu);
+    String_destroy(&ctx->stop_signal);
+}
+
+static bool Context_set_stop_signal(Context *const ctx, const char *const stop_signal)
+{
+    if (strcmp(ctx->stop_signal.data, stop_signal) == 0)
+        return false;
+
+    String_destroy(&ctx->stop_signal);
+    ctx->stop_signal = String_from(stop_signal);
+
+    return true;
 }
 
 [[nodiscard]] static String handle_q_packet(const Packet *const packet, GdbServer *const server)
@@ -145,6 +158,48 @@ static void String_push_register_hex(String *const s, u32 value)
     return String_from("OK");
 }
 
+[[nodiscard]] String handle_read_regs(Context *const ctx)
+{
+    String s = String_with_capacity(8L * (CPU_REGS_SIZE + 1L));
+
+    for (size_t i = 0; i < CPU_REGS_SIZE; ++i)
+        String_push_register_hex(&s, ctx->cpu.registers[i]);
+
+    String_push_register_hex(&s, ctx->cpu.pc);
+    return s;
+}
+
+[[nodiscard]] u32 u32_read_hex_le(const char *const str)
+{
+    u32 out = 0x0;
+
+    for (size_t j = 0; j < 4; ++j) {
+        char buf[3] = {};
+        memcpy(buf, &str[2 * j], 2);
+
+        const u8 byte = strtol(buf, nullptr, 16);
+        out |= (u32)byte << (8 * j);
+    }
+
+    return out;
+}
+
+[[nodiscard]] String handle_write_regs(Context *const ctx, const Packet *const packet)
+{
+    if (packet->data.size != 1 + 8L * (CPU_REGS_SIZE + 1))
+        return String_from("E01"); // Bad packet
+
+    size_t pos = 1;
+
+    for (size_t i = 0; i < CPU_REGS_SIZE; ++i) {
+        ctx->cpu.registers[i] = u32_read_hex_le(&packet->data.data[pos]);
+        pos += 8L;
+    }
+
+    ctx->cpu.pc = u32_read_hex_le(&packet->data.data[pos]);
+    return String_from("OK");
+}
+
 [[nodiscard]] static String handle_continue(Context *const ctx, BufSock *const client)
 {
     char ch = '\0';
@@ -152,14 +207,19 @@ static void String_push_register_hex(String *const s, u32 value)
     while (!BufSock_try_read_buf(client, &ch) || ch != 0x03) {
         const CpuStepResult result = Cpu_step(&ctx->cpu);
 
-        if (result == CpuStepResult_IllegalInstruction)
-            return String_from("S04"); // SIGILL
+        if (result == CpuStepResult_Break) {
+            Context_set_stop_signal(ctx, "S05");
+            return String_clone(ctx->stop_signal);
+        }
 
-        if (result == CpuStepResult_Break)
-            return String_from("S05"); // SIGTRAP
+        if (result == CpuStepResult_IllegalInstruction) {
+            Context_set_stop_signal(ctx, "S04");
+            return String_clone(ctx->stop_signal);
+        }
     }
 
-    return String_from("S02");
+    Context_set_stop_signal(ctx, "S02");
+    return String_clone(ctx->stop_signal);
 }
 
 [[nodiscard]] static String packet_handler(void *const ctx_raw, const Packet *const packet,
@@ -177,11 +237,17 @@ static void String_push_register_hex(String *const s, u32 value)
         return handle_v_packet(packet);
 
     if (packet->data.data[0] == '?')
-        return String_from("S05");
+        return String_clone(ctx->stop_signal);
 
     if (packet->data.data[0] == 's') {
-        Cpu_step(&ctx->cpu);
-        return String_from("S05");
+        const CpuStepResult result = Cpu_step(&ctx->cpu);
+
+        if (result == CpuStepResult_IllegalInstruction)
+            Context_set_stop_signal(ctx, "S04");
+        else
+            Context_set_stop_signal(ctx, "S05");
+
+        return String_clone(ctx->stop_signal);
     }
 
     if (packet->data.data[0] == 'c')
@@ -202,15 +268,11 @@ static void String_push_register_hex(String *const s, u32 value)
     if (packet->data.data[0] == 'M')
         return handle_write_mem(ctx, packet);
 
-    if (packet->data.data[0] == 'g') {
-        String s = String_with_capacity(8L * (CPU_REGS_SIZE + 1L));
+    if (packet->data.data[0] == 'g')
+        return handle_read_regs(ctx);
 
-        for (size_t i = 0; i < CPU_REGS_SIZE; ++i)
-            String_push_register_hex(&s, ctx->cpu.registers[i]);
-
-        String_push_register_hex(&s, ctx->cpu.pc);
-        return s;
-    }
+    if (packet->data.data[0] == 'G')
+        return handle_write_regs(ctx, packet);
 
     return String_new();
 }
@@ -297,6 +359,7 @@ int main(int argc, const char *argv[])
 
     Context ctx = {
         .cpu = cpu,
+        .stop_signal = String_from("S05"),
     };
 
     if (!GdbServer_new(packet_handler, &ctx, &server)) {

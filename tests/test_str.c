@@ -83,6 +83,23 @@ void test_string_concatenation(void)
     String_destroy(&s2);
 }
 
+void test_str_clone(void)
+{
+    String s1 = String_from("foo");
+    String s2 = String_clone(s1);
+
+    TEST_ASSERT_EQUAL_STRING("foo", s2.data);
+    TEST_ASSERT_EQUAL(s1.size, s2.size);
+    TEST_ASSERT_GREATER_OR_EQUAL(s2.size, s2.capacity);
+    TEST_ASSERT_NOT_EQUAL(s1.data, s2.data);
+
+    String_destroy(&s1);
+
+    TEST_ASSERT_EQUAL_STRING("foo", s2.data);
+
+    String_destroy(&s2);
+}
+
 void test_string_clear(void)
 {
     String s = String_from("foo");

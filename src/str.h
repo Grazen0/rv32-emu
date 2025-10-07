@@ -25,6 +25,8 @@ void String_push_raw(String *str, const char *other);
 
 void String_push_hex(String *str, u8 byte);
 
+String String_clone(String str);
+
 void String_clear(String *str);
 
 void String_destroy(String *str);

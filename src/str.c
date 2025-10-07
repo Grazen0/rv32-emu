@@ -85,7 +85,7 @@ void String_push_raw(String *const str, const char *const other)
     if (other_size == 0)
         return;
 
-    if (str->size + other_size >= str->capacity) {
+    if (str->size + other_size > str->capacity) {
         const size_t new_capacity = sz_max(2 * str->capacity, str->size + other_size);
         String_reallocate(str, new_capacity);
     }
@@ -101,6 +101,13 @@ void String_push_hex(String *const str, const u8 byte)
     char buf[3] = {};
     snprintf(buf, sizeof(buf), "%02x", byte);
     String_push_raw(str, buf);
+}
+
+String String_clone(const String str)
+{
+    String out = String_with_capacity(str.size);
+    String_push_str(&out, str);
+    return out;
 }
 
 void String_clear(String *const str)
