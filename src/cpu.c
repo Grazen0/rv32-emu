@@ -85,19 +85,19 @@ CpuStepResult Cpu_step(Cpu *const cpu)
         const u32 addr = cpu->registers[rs1] + imm_i;
 
         switch (funct3) {
-        case 0b000:
+        case 0b000: // lb    rd,  imm(rs1)
             cpu->registers[rd] = (u32)(i32)(i8)cpu->memory[addr];
             break;
-        case 0b001:
+        case 0b001: // lh    rd,  imm(rs1)
             cpu->registers[rd] = (u32)(i32)(i16)read_u16_le(cpu->memory, addr);
             break;
-        case 0b010:
+        case 0b010: // lw    rd,  imm(rs1)
             cpu->registers[rd] = read_u32_le(cpu->memory, addr);
             break;
-        case 0b100:
+        case 0b100: // lbu    rd,  imm(rs1)
             cpu->registers[rd] = cpu->memory[addr];
             break;
-        case 0b101:
+        case 0b101: // lhu    rd,  imm(rs1)
             cpu->registers[rd] = read_u16_le(cpu->memory, addr);
             break;
         default:
@@ -109,33 +109,33 @@ CpuStepResult Cpu_step(Cpu *const cpu)
         const u32 shamt = imm_i & 0x1F;
 
         switch (funct3) {
-        case 0b000:
+        case 0b000: // addi    rd, rs1, imm
             cpu->registers[rd] = cpu->registers[rs1] + imm_i;
             break;
-        case 0b001:
+        case 0b001: // slli    rd, rs1, uimm
             cpu->registers[rd] = cpu->registers[rs1] << shamt;
             break;
-        case 0b010:
+        case 0b010: // slti    rd, rs1, imm
             cpu->registers[rd] = (i32)cpu->registers[rs1] < imm_i;
             break;
-        case 0b011:
+        case 0b011: // sltiu    rd, rs1, imm
             cpu->registers[rd] = cpu->registers[rs1] < (u32)imm_i;
             break;
-        case 0b100:
+        case 0b100: // xori    rd, rs1, imm
             cpu->registers[rd] = cpu->registers[rs1] ^ imm_i;
             break;
         case 0b101:
-            if (funct7 == 0b000'0000)
+            if (funct7 == 0b000'0000) // srli    rd, rs1, uimm
                 cpu->registers[rd] = cpu->registers[rs1] >> shamt;
-            else if (funct7 == 0b010'0000)
+            else if (funct7 == 0b010'0000) // srai    rd, rs1, uimm
                 cpu->registers[rd] = (u32)((i32)cpu->registers[rs1] >> shamt);
             else
                 return CpuStepResult_IllegalInstruction;
             break;
-        case 0b110:
+        case 0b110: // ori    rd, rs1, imm
             cpu->registers[rd] = cpu->registers[rs1] | imm_i;
             break;
-        case 0b111:
+        case 0b111: // andi    rd, rs1, imm
             cpu->registers[rd] = cpu->registers[rs1] & imm_i;
             break;
         default:
@@ -143,7 +143,7 @@ CpuStepResult Cpu_step(Cpu *const cpu)
         }
         break;
     }
-    case 0b001'0111:
+    case 0b001'0111: // auipc    rd, upimm
         cpu->registers[rd] = cpu->pc + imm_u;
         break;
     case 0b010'0011: {
@@ -151,13 +151,13 @@ CpuStepResult Cpu_step(Cpu *const cpu)
         const u32 addr = cpu->registers[rs1] + imm_s;
 
         switch (funct3) {
-        case 0b000:
+        case 0b000: // sb    rs2, imm(rs1)
             cpu->memory[addr] = (u8)cpu->registers[rs2];
             break;
-        case 0b001:
+        case 0b001: // sh    rs2, imm(rs1)
             write_u16_le(cpu->memory, addr, (u16)cpu->registers[rs2]);
             break;
-        case 0b010:
+        case 0b010: // sw    rs2, imm(rs1)
             write_u32_le(cpu->memory, addr, cpu->registers[rs2]);
             break;
         default:
@@ -170,37 +170,37 @@ CpuStepResult Cpu_step(Cpu *const cpu)
 
         switch (funct3) {
         case 0b000:
-            if (funct7 == 0b000'0000)
+            if (funct7 == 0b000'0000) // add    rd, rs1, rs2
                 cpu->registers[rd] = cpu->registers[rs1] + cpu->registers[rs2];
-            else if (funct7 == 0b010'0000)
+            else if (funct7 == 0b010'0000) // sub    rd, rs1, rs2
                 cpu->registers[rd] = cpu->registers[rs1] - cpu->registers[rs2];
             else
                 return CpuStepResult_IllegalInstruction;
             break;
-        case 0b001:
+        case 0b001: // sll    rd, rs1, rs2
             cpu->registers[rd] = cpu->registers[rs1] << shamt;
             break;
-        case 0b010:
+        case 0b010: // slt    rd, rs1, rs2
             cpu->registers[rd] = (i32)cpu->registers[rs1] < (i32)cpu->registers[rs2];
             break;
-        case 0b011:
+        case 0b011: // sltu    rd, rs1, rs2
             cpu->registers[rd] = cpu->registers[rs1] < cpu->registers[rs2];
             break;
-        case 0b100:
+        case 0b100: // xor    rd, rs1, rs2
             cpu->registers[rd] = cpu->registers[rs1] ^ cpu->registers[rs2];
             break;
         case 0b101:
-            if (funct7 == 0b000'0000)
+            if (funct7 == 0b000'0000) // srl    rd, rs1, rs2
                 cpu->registers[rd] = cpu->registers[rs1] >> shamt;
-            else if (funct7 == 0b010'0000)
+            else if (funct7 == 0b010'0000) // sra    rd, rs1, rs2
                 cpu->registers[rd] = (u32)((i32)cpu->registers[rs1] >> shamt);
             else
                 return CpuStepResult_IllegalInstruction;
             break;
-        case 0b110:
+        case 0b110: // or    rd, rs1, rs2
             cpu->registers[rd] = cpu->registers[rs1] | cpu->registers[rs2];
             break;
-        case 0b111:
+        case 0b111: // and    rd, rs1, rs2
             cpu->registers[rd] = cpu->registers[rs1] & cpu->registers[rs2];
             break;
         default:
@@ -208,7 +208,7 @@ CpuStepResult Cpu_step(Cpu *const cpu)
         }
         break;
     }
-    case 0b011'0111:
+    case 0b011'0111: // lui    rd, rs1, rs2
         cpu->registers[rd] = imm_u;
         break;
     case 0b110'0011: {
@@ -216,27 +216,27 @@ CpuStepResult Cpu_step(Cpu *const cpu)
                                 (((instr >> 7) & 0x1) << 11) | (((i32)instr >> 31) << 12));
 
         switch (funct3) {
-        case 0b000:
+        case 0b000: // beq    rs1, rs2, label
             if (cpu->registers[rs1] == cpu->registers[rs2])
                 new_pc = cpu->pc + imm_b;
             break;
-        case 0b001:
+        case 0b001: // bne    rs1, rs2, label
             if (cpu->registers[rs1] != cpu->registers[rs2])
                 new_pc = cpu->pc + imm_b;
             break;
-        case 0b100:
+        case 0b100: // blt    rs1, rs2, label
             if ((i32)cpu->registers[rs1] < (i32)cpu->registers[rs2])
                 new_pc = cpu->pc + imm_b;
             break;
-        case 0b101:
+        case 0b101: // bge    rs1, rs2, label
             if ((i32)cpu->registers[rs1] >= (i32)cpu->registers[rs2])
                 new_pc = cpu->pc + imm_b;
             break;
-        case 0b110:
+        case 0b110: // bltu    rs1, rs2, label
             if (cpu->registers[rs1] < cpu->registers[rs2])
                 new_pc = cpu->pc + imm_b;
             break;
-        case 0b111:
+        case 0b111: // bgeu    rs1, rs2, label
             if (cpu->registers[rs1] >= cpu->registers[rs2])
                 new_pc = cpu->pc + imm_b;
             break;
@@ -248,13 +248,13 @@ CpuStepResult Cpu_step(Cpu *const cpu)
     case 0b110'0111:
         cpu->registers[rd] = new_pc;
 
-        if (funct3 == 0b000)
+        if (funct3 == 0b000) // jalr    rd, rs1, imm
             new_pc = (cpu->registers[rs1] + imm_i) & ~1;
         else
             return CpuStepResult_IllegalInstruction;
 
         break;
-    case 0b110'1111: {
+    case 0b110'1111: { // jal    rd, label
         const i32 imm_j = (i32)((((instr >> 21) & 0x3FF) << 1) | (((instr >> 20) & 0x1) << 11) |
                                 (((instr >> 12) & 0xFF) << 12) | (((i32)instr >> 31) << 20));
 
@@ -263,7 +263,7 @@ CpuStepResult Cpu_step(Cpu *const cpu)
         break;
     }
     case 0b111'0011:
-        if (funct3 == 0 && imm_i == 1)
+        if (funct3 == 0 && imm_i == 1) // ebreak
             return CpuStepResult_Break;
 
         return CpuStepResult_IllegalInstruction;
