@@ -10,6 +10,9 @@ solution using the GCC RISC-V toolchain and whatnot. What I needed was an
 **emulator**, but I wasn't able to find any easy-to-use emulator that mimmicked
 CPUlator's insanely simple system specs (all RAM, even the program data).
 
+You can check out an example project using this emulator
+[here](https://github.com/Grazen0/hello-rv32).
+
 ## Features
 
 - [x] RV32I integer instructions.
