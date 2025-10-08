@@ -19,7 +19,8 @@ typedef enum ElfResult {
     ElfResult_InvalidSectionHeaderSize,
     ElfResult_UnalignedVAddr,
     ElfResult_ProgramDataFileOutOfBounds,
-    ElfResult_ProgramDataVAddrOutOfBounds
+    ElfResult_ProgramDataVAddrOutOfBounds,
+    ElfResult_InvalidMemSize,
 } ElfResult;
 
 /**

@@ -36,6 +36,8 @@ const char *ElfResult_display(const ElfResult result)
         return "File data exceeds ELF file size.";
     case ElfResult_ProgramDataVAddrOutOfBounds:
         return "Virtual address range exceeds target memory bounds.";
+    case ElfResult_InvalidMemSize:
+        return "p_memsz is smaller than p_filesz";
     default:
         BAIL("Invalid ElfResult.");
     }
@@ -126,16 +128,14 @@ ElfResult load_phdr(u8 *const dest, const size_t dest_size, const Elf32_Phdr *co
                phdr->p_paddr);
     }
 
-    if (phdr->p_memsz != phdr->p_filesz)
-        printf("Warning (phdrs[%zu]): p_memsz different from p_filesz.\n", phdr_n);
+    if (phdr->p_memsz < phdr->p_filesz)
+        return ElfResult_InvalidMemSize;
 
-    if (phdr->p_offset + phdr->p_filesz > elf_data_size) {
+    if (phdr->p_offset + phdr->p_filesz > elf_data_size)
         return ElfResult_ProgramDataFileOutOfBounds;
-    }
 
-    if ((size_t)phdr->p_vaddr + phdr->p_memsz > dest_size) {
+    if ((size_t)phdr->p_vaddr + phdr->p_memsz > dest_size)
         return ElfResult_ProgramDataVAddrOutOfBounds;
-    }
 
     memcpy(&dest[phdr->p_vaddr], &elf_data[phdr->p_offset], phdr->p_filesz);
     return ElfResult_Ok;
