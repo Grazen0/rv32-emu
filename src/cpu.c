@@ -6,7 +6,7 @@
 
 [[nodiscard]] static u32 read_u32_le(const u8 *const memory, const u32 addr)
 {
-    if (addr > CPU_MEMORY_SIZE - 4)
+    if ((size_t)addr + 4 > CPU_MEMORY_SIZE)
         BAIL("memory index out of bounds: 0x%08X", addr);
 
     const u32 a = memory[addr];
@@ -19,7 +19,7 @@
 
 [[nodiscard]] static u16 read_u16_le(const u8 *const memory, const u32 addr)
 {
-    if (addr > CPU_MEMORY_SIZE - 2)
+    if ((size_t)addr + 2 > CPU_MEMORY_SIZE)
         BAIL("memory index out of bounds: 0x%08X", addr);
 
     const u16 a = memory[addr];
@@ -30,7 +30,7 @@
 
 static void write_u32_le(u8 *const memory, const u32 addr, const u32 value)
 {
-    if (addr > CPU_MEMORY_SIZE - 4)
+    if ((size_t)addr > CPU_MEMORY_SIZE + 4)
         BAIL("memory index out of bounds: 0x%08X", addr);
 
     memory[addr] = (u8)value;
@@ -41,7 +41,7 @@ static void write_u32_le(u8 *const memory, const u32 addr, const u32 value)
 
 static void write_u16_le(u8 *const memory, const u32 addr, const u16 value)
 {
-    if (addr > CPU_MEMORY_SIZE - 2)
+    if ((size_t)addr + 2 > CPU_MEMORY_SIZE)
         BAIL("memory index out of bounds: 0x%08X", addr);
 
     memory[addr] = (u8)value;
@@ -79,6 +79,8 @@ CpuStepResult Cpu_step(Cpu *const cpu)
 
     const i32 imm_i = (i32)instr >> 20;
     const i32 imm_u = (i32)(instr & 0xFFFFF000);
+
+    cpu->registers[0] = 0;
 
     switch (op) {
     case 0b000'0011: {
