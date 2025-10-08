@@ -200,12 +200,25 @@ static void String_push_register_hex(String *const s, u32 value)
     return String_from("OK");
 }
 
+[[nodiscard]] static CpuStepResult step_cpu_warn(Cpu *const cpu)
+{
+    CpuWarnings warnings = {};
+    const CpuStepResult result = Cpu_step(cpu, &warnings);
+
+    if (warnings.misaligned_mem_access.warn) {
+        printf("Warning: Misaligned memory access at 0x%08X\n",
+               warnings.misaligned_mem_access.addr);
+    }
+
+    return result;
+}
+
 [[nodiscard]] static String handle_continue(Context *const ctx, BufSock *const client)
 {
     char ch = '\0';
 
     while (!BufSock_try_read_buf(client, &ch) || ch != 0x03) {
-        const CpuStepResult result = Cpu_step(&ctx->cpu);
+        const CpuStepResult result = step_cpu_warn(&ctx->cpu);
 
         if (result == CpuStepResult_Break) {
             Context_set_stop_signal(ctx, "S05");
@@ -240,7 +253,7 @@ static void String_push_register_hex(String *const s, u32 value)
         return String_clone(ctx->stop_signal);
 
     if (packet->data.data[0] == 's') {
-        const CpuStepResult result = Cpu_step(&ctx->cpu);
+        const CpuStepResult result = step_cpu_warn(&ctx->cpu);
 
         if (result == CpuStepResult_IllegalInstruction)
             Context_set_stop_signal(ctx, "S04");

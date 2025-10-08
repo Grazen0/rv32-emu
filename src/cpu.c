@@ -4,10 +4,17 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-[[nodiscard]] static u32 read_u32_le(const u8 *const memory, const u32 addr)
+[[nodiscard]] static u32 read_u32_le(const u8 *const memory, const u32 addr,
+                                     CpuWarnings *const out_warnings)
 {
     if ((size_t)addr + 4 > CPU_MEMORY_SIZE)
         BAIL("memory index out of bounds: 0x%08X", addr);
+
+    if ((addr % 4) != 0) {
+        out_warnings->misaligned_mem_access.addr = addr;
+        out_warnings->misaligned_mem_access.kind = AccessKind_Read;
+        out_warnings->misaligned_mem_access.warn = true;
+    }
 
     const u32 a = memory[addr];
     const u32 b = memory[addr + 1];
@@ -17,10 +24,17 @@
     return a | (b << 8) | (c << 16) | (d << 24);
 }
 
-[[nodiscard]] static u16 read_u16_le(const u8 *const memory, const u32 addr)
+[[nodiscard]] static u16 read_u16_le(const u8 *const memory, const u32 addr,
+                                     CpuWarnings *const out_warnings)
 {
     if ((size_t)addr + 2 > CPU_MEMORY_SIZE)
         BAIL("memory index out of bounds: 0x%08X", addr);
+
+    if ((addr % 2) != 0) {
+        out_warnings->misaligned_mem_access.addr = addr;
+        out_warnings->misaligned_mem_access.kind = AccessKind_Read;
+        out_warnings->misaligned_mem_access.warn = true;
+    }
 
     const u16 a = memory[addr];
     const u16 b = memory[addr + 1];
@@ -28,10 +42,17 @@
     return a | (b << 8);
 }
 
-static void write_u32_le(u8 *const memory, const u32 addr, const u32 value)
+static void write_u32_le(u8 *const memory, const u32 addr, const u32 value,
+                         CpuWarnings *const out_warnings)
 {
     if ((size_t)addr > CPU_MEMORY_SIZE + 4)
         BAIL("memory index out of bounds: 0x%08X", addr);
+
+    if ((addr % 4) != 0) {
+        out_warnings->misaligned_mem_access.addr = addr;
+        out_warnings->misaligned_mem_access.kind = AccessKind_Write;
+        out_warnings->misaligned_mem_access.warn = true;
+    }
 
     memory[addr] = (u8)value;
     memory[addr + 1] = (u8)(value >> 8);
@@ -39,10 +60,17 @@ static void write_u32_le(u8 *const memory, const u32 addr, const u32 value)
     memory[addr + 3] = (u8)(value >> 24);
 }
 
-static void write_u16_le(u8 *const memory, const u32 addr, const u16 value)
+static void write_u16_le(u8 *const memory, const u32 addr, const u16 value,
+                         CpuWarnings *const out_warnings)
 {
     if ((size_t)addr + 2 > CPU_MEMORY_SIZE)
         BAIL("memory index out of bounds: 0x%08X", addr);
+
+    if ((addr % 2) != 0) {
+        out_warnings->misaligned_mem_access.addr = addr;
+        out_warnings->misaligned_mem_access.kind = AccessKind_Write;
+        out_warnings->misaligned_mem_access.warn = true;
+    }
 
     memory[addr] = (u8)value;
     memory[addr + 1] = (u8)(value >> 8);
@@ -65,12 +93,14 @@ void Cpu_destroy(Cpu *const cpu)
 }
 
 // NOLINTNEXTLINE
-CpuStepResult Cpu_step(Cpu *const cpu)
+CpuStepResult Cpu_step(Cpu *const cpu, CpuWarnings *const out_warnings)
 {
     if ((cpu->pc & 0b11) != 0)
         BAIL("misaligned pc (0x%08X)", cpu->pc);
 
-    const u32 instr = read_u32_le(cpu->memory, cpu->pc);
+    out_warnings->misaligned_mem_access.warn = false;
+
+    const u32 instr = read_u32_le(cpu->memory, cpu->pc, out_warnings);
     u32 new_pc = cpu->pc + 4;
 
     const u8 op = instr & 0b111'1111;
@@ -94,16 +124,16 @@ CpuStepResult Cpu_step(Cpu *const cpu)
             cpu->registers[rd] = (u32)(i32)(i8)cpu->memory[addr];
             break;
         case 0b001: // lh    rd,  imm(rs1)
-            cpu->registers[rd] = (u32)(i32)(i16)read_u16_le(cpu->memory, addr);
+            cpu->registers[rd] = (u32)(i32)(i16)read_u16_le(cpu->memory, addr, out_warnings);
             break;
         case 0b010: // lw    rd,  imm(rs1)
-            cpu->registers[rd] = read_u32_le(cpu->memory, addr);
+            cpu->registers[rd] = read_u32_le(cpu->memory, addr, out_warnings);
             break;
         case 0b100: // lbu    rd,  imm(rs1)
             cpu->registers[rd] = cpu->memory[addr];
             break;
         case 0b101: // lhu    rd,  imm(rs1)
-            cpu->registers[rd] = read_u16_le(cpu->memory, addr);
+            cpu->registers[rd] = read_u16_le(cpu->memory, addr, out_warnings);
             break;
         default:
             return CpuStepResult_IllegalInstruction;
@@ -160,10 +190,10 @@ CpuStepResult Cpu_step(Cpu *const cpu)
             cpu->memory[addr] = (u8)cpu->registers[rs2];
             break;
         case 0b001: // sh    rs2, imm(rs1)
-            write_u16_le(cpu->memory, addr, (u16)cpu->registers[rs2]);
+            write_u16_le(cpu->memory, addr, (u16)cpu->registers[rs2], out_warnings);
             break;
         case 0b010: // sw    rs2, imm(rs1)
-            write_u32_le(cpu->memory, addr, cpu->registers[rs2]);
+            write_u32_le(cpu->memory, addr, cpu->registers[rs2], out_warnings);
             break;
         default:
             return CpuStepResult_IllegalInstruction;

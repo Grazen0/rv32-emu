@@ -14,16 +14,29 @@ typedef struct Cpu {
     u8 *memory;
 } Cpu;
 
-typedef enum CpuStepResult {
+typedef enum CpuStepResult : u8 {
     CpuStepResult_None,
     CpuStepResult_Break,
     CpuStepResult_IllegalInstruction,
 } CpuStepResult;
 
+typedef enum AccessKind : u8 {
+    AccessKind_Read,
+    AccessKind_Write,
+} AccessKind;
+
+typedef struct CpuWarnings {
+    struct {
+        bool warn;
+        AccessKind kind;
+        u32 addr;
+    } misaligned_mem_access;
+} CpuWarnings;
+
 Cpu Cpu_new(void);
 
 void Cpu_destroy(Cpu *cpu);
 
-CpuStepResult Cpu_step(Cpu *cpu);
+CpuStepResult Cpu_step(Cpu *cpu, CpuWarnings *out_warnings);
 
 #endif
