@@ -206,8 +206,8 @@ static void String_push_register_hex(String *const s, u32 value)
     const CpuStepResult result = Cpu_step(cpu, &warnings);
 
     if (warnings.misaligned_mem_access.warn) {
-        printf("Warning: Misaligned memory access at 0x%08X\n",
-               warnings.misaligned_mem_access.addr);
+        fprintf(stderr, "Warning: Misaligned memory access at 0x%08X.\n",
+                warnings.misaligned_mem_access.addr);
     }
 
     return result;

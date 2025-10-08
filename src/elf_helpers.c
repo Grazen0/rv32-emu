@@ -46,11 +46,6 @@ const char *ElfResult_display(const ElfResult result)
 ElfResult parse_elf(const u8 *const elf_data, const size_t elf_data_size,
                     const Elf32_Ehdr **const out_ehdr, const Elf32_Phdr **const out_phdrs)
 {
-    if (elf_data_size < sizeof(Elf32_Ehdr)) {
-        printf("Invalid ELF file.\n");
-        return 1;
-    }
-
     Elf32_Ehdr *const ehdr = (Elf32_Ehdr *)elf_data;
 
     if (elf_data_size < sizeof(Elf32_Ehdr))
@@ -78,10 +73,11 @@ ElfResult parse_elf(const u8 *const elf_data, const size_t elf_data_size,
         return ElfResult_InvalidElfVersion;
 
     if (ehdr->e_ident[EI_OSABI] != ELFOSABI_NONE)
-        printf("Warning: Unsupported ELF OSABI (0x%02X).\n", ehdr->e_ident[EI_OSABI]);
+        fprintf(stderr, "Warning: Unsupported ELF OSABI (0x%02X).\n", ehdr->e_ident[EI_OSABI]);
 
     if (ehdr->e_ident[EI_ABIVERSION] != 0x00)
-        printf("Warning: Unsupported ELF ABIVERSION (0x%02X).\n", ehdr->e_ident[EI_ABIVERSION]);
+        fprintf(stderr, "Warning: Unsupported ELF ABIVERSION (0x%02X).\n",
+                ehdr->e_ident[EI_ABIVERSION]);
 
     if (ehdr->e_type != ET_EXEC)
         return ElfResult_UnsupportedElfType;
@@ -93,7 +89,7 @@ ElfResult parse_elf(const u8 *const elf_data, const size_t elf_data_size,
         return ElfResult_InvalidElfVersion;
 
     if (ehdr->e_flags != 0)
-        printf("Warning: Ignoring non-zero flags in ELF header.\n");
+        fprintf(stderr, "Warning: Ignoring non-zero flags in ELF header.\n");
 
     if (elf_data_size < ehdr->e_phoff + (ehdr->e_phnum * ehdr->e_phentsize))
         return ElfResult_FileTooSmall;
@@ -113,19 +109,20 @@ ElfResult load_phdr(u8 *const dest, const size_t dest_size, const Elf32_Phdr *co
 
     if (phdr->p_align > 1) {
         if (!u32_is_pow2(phdr->p_align))
-            printf("Warning(phdrs[%zu]): p_align of is not a power of 2.\n", phdr_n);
+            fprintf(stderr, "Warning(phdrs[%zu]): p_align of is not a power of 2.\n", phdr_n);
 
         if ((phdr->p_vaddr % phdr->p_align) != (phdr->p_offset % phdr->p_align))
             return ElfResult_UnalignedVAddr;
     }
 
     if ((phdr->p_flags & PF_R) == 0 || (phdr->p_flags & PF_W) == 0 || (phdr->p_flags & PF_X) == 0) {
-        printf("Warning(phdrs[%zu]): Ignoring access flags (0b%03B).\n", phdr_n, phdr->p_flags);
+        fprintf(stderr, "Warning(phdrs[%zu]): Ignoring access flags (0b%03B).\n", phdr_n,
+                phdr->p_flags);
     }
 
     if (phdr->p_paddr != phdr->p_vaddr) {
-        printf("Warning (phdrs[%zu]): Ignoring p_addr value of %X different to p_vaddr.\n", phdr_n,
-               phdr->p_paddr);
+        fprintf(stderr, "Warning (phdrs[%zu]): Ignoring p_addr value of %X different to p_vaddr.\n",
+                phdr_n, phdr->p_paddr);
     }
 
     if (phdr->p_memsz < phdr->p_filesz)
