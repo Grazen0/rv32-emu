@@ -141,8 +141,7 @@ ElfResult load_phdr(u8 *const dest, const size_t dest_size, const Elf32_Phdr *co
     return ElfResult_Ok;
 }
 
-void print_phdr_debug(const Elf32_Phdr *const phdr, const size_t phdr_n, const u8 *const elf_data,
-                      const size_t elf_data_size)
+void print_phdr_debug(const Elf32_Phdr *const phdr, const size_t phdr_n)
 {
     ver_printf("phdrs[%zu] ====================================\n", phdr_n);
     ver_printf("type:    0x%02X\n", phdr->p_type);
@@ -154,20 +153,4 @@ void print_phdr_debug(const Elf32_Phdr *const phdr, const size_t phdr_n, const u
     ver_printf("memsz:   0x%02X\n", phdr->p_memsz);
     ver_printf("align:   0x%02X\n", phdr->p_align);
     ver_printf("\n");
-
-    if (phdr->p_filesz != 0) {
-        if (phdr->p_offset + phdr->p_filesz > elf_data_size) {
-            printf("(Data out of bounds)\n");
-        } else {
-            // Dump data
-            for (size_t i = 0; i < phdr->p_filesz; ++i) {
-                ver_printf("%02X ", elf_data[phdr->p_offset + i]);
-
-                if ((i % 16) == 15 || i == phdr->p_filesz - 1)
-                    ver_printf("\n");
-            }
-        }
-
-        ver_printf("\n");
-    }
 }

@@ -306,7 +306,7 @@ static bool load_elf_to_cpu(const char *const filename, Cpu *const cpu)
 
     for (size_t i = 0; i < ehdr->e_phnum; ++i) {
         const Elf32_Phdr *const phdr = &phdrs[i];
-        print_phdr_debug(phdrs, i, elf_data, elf_data_size);
+        print_phdr_debug(phdrs, i);
 
         if (phdr->p_type == PT_LOAD) {
             const ElfResult result =

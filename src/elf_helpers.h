@@ -85,7 +85,6 @@ typedef enum ElfResult {
  *
  * \sa set_verbose, ver_printf
  */
-void print_phdr_debug(const Elf32_Phdr *phdr, size_t phdr_n, const u8 *elf_data,
-                      size_t elf_data_size);
+void print_phdr_debug(const Elf32_Phdr *phdr, size_t phdr_n);
 
 #endif
