@@ -343,6 +343,7 @@ void GdbServer_destroy(GdbServer *const server)
         return;
 
     server->listening = false;
+    close(server->sock);
 }
 
 void Packet_destroy(Packet *const packet)
