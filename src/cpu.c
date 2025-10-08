@@ -67,6 +67,9 @@ void Cpu_destroy(Cpu *const cpu)
 // NOLINTNEXTLINE
 CpuStepResult Cpu_step(Cpu *const cpu)
 {
+    if ((cpu->pc & 0b11) != 0)
+        BAIL("misaligned pc (0x%08X)", cpu->pc);
+
     const u32 instr = read_u32_le(cpu->memory, cpu->pc);
     u32 new_pc = cpu->pc + 4;
 
