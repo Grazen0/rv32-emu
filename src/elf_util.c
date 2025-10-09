@@ -1,6 +1,7 @@
-#include "elf_helpers.h"
+#include "elf_util.h"
+#include "log.h"
 #include "macros.h"
-#include "util.h"
+#include "numeric.h"
 #include <elf.h>
 #include <stddef.h>
 #include <stdio.h>

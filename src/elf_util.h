@@ -1,5 +1,5 @@
-#ifndef RV32_EMU_ELF_HELPERS
-#define RV32_EMU_ELF_HELPERS
+#ifndef RV32_EMU_ELF_UTIL_H
+#define RV32_EMU_ELF_UTIL_H
 
 #include "stdinc.h"
 #include <elf.h>

@@ -1,10 +1,11 @@
 #include "cpu.h"
 #include "elf.h"
-#include "elf_helpers.h"
+#include "elf_util.h"
+#include "io.h"
+#include "log.h"
 #include "protocol.h"
 #include "stdinc.h"
 #include "str.h"
-#include "util.h"
 #include <argparse.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>

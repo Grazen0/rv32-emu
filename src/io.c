@@ -1,19 +1,7 @@
-#include "util.h"
-#include "stdinc.h"
-#include <stdarg.h>
+#include "io.h"
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-size_t sz_max(const size_t a, const size_t b)
-{
-    return a > b ? a : b;
-}
-
-bool u32_is_pow2(const u32 n)
-{
-    return (n & (n - 1)) == 0;
-}
 
 u8 *load_file(const char *const filename, size_t *const file_size)
 {
@@ -35,21 +23,4 @@ u8 *load_file(const char *const filename, size_t *const file_size)
 
     fclose(file);
     return data;
-}
-
-static bool verbose_mode = false;
-
-void set_verbose(const bool verbose)
-{
-    verbose_mode = verbose;
-}
-
-void ver_printf(const char *const fmt, ...)
-{
-    if (verbose_mode) {
-        va_list args;
-        va_start(args, fmt);
-        vprintf(fmt, args);
-        va_end(args);
-    }
 }

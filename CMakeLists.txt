@@ -9,12 +9,14 @@ set(GCC_LIKE $<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_C
 
 set(sources
     src/cpu.c
-    src/elf_helpers.c
+    src/elf_util.c
+    src/io.c
+    src/log.c
+    src/numeric.c
     src/protocol.c
     src/macros.c
     src/stdinc.c
-    src/str.c
-    src/util.c)
+    src/str.c)
 
 add_library(argparse STATIC external/argparse/argparse.c)
 target_include_directories(argparse SYSTEM PUBLIC external/argparse)

@@ -1,7 +1,7 @@
 #include "str.h"
 #include "macros.h"
+#include "numeric.h"
 #include "stdinc.h"
-#include "util.h"
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>

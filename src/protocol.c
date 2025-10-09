@@ -1,7 +1,7 @@
 #include "protocol.h"
+#include "log.h"
 #include "stdinc.h"
 #include "str.h"
-#include "util.h"
 #include <errno.h>
 #include <netinet/in.h>
 #include <stddef.h>
