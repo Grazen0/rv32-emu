@@ -32,7 +32,21 @@ You should be able to just clone the repo and run these:
 ```bash
 cmake -S . -B build
 cmake --build build
-build/rv32-emu <path-to-binary>
+build/rv32-emu <path-to-executable>
+```
+
+## Usage
+
+```bash
+# Compile your code with the RISC-V GNU toolchain
+riscv32-unknown-none-elf-gcc -nostdlib -march=rv32i -mabi=ilp32 -g -o ./hello.elf ./hello.s
+
+# Run the emulator
+rv32-emu ./hello.elf
+
+# Now, in *another* terminal...
+riscv32-unknown-none-elf-gdb ./hello.elf
+(gdb) target remote :3333
 ```
 
 [pkg-config]: https://www.freedesktop.org/wiki/Software/pkg-config/
