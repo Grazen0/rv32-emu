@@ -72,8 +72,8 @@ typedef enum ElfResult {
  *
  * \return The result of the operation.
  */
-[[nodiscard]] ElfResult load_phdr(u8 *dest, size_t dest_size, const Elf32_Phdr *phdr, size_t phdr_n,
-                                  const u8 *elf_data, size_t elf_data_size);
+[[nodiscard]] ElfResult elf_load_phdr(u8 *dest, size_t dest_size, const Elf32_Phdr *phdr,
+                                      size_t phdr_n, const u8 *elf_data, size_t elf_data_size);
 
 /**
  * \brief Verbose-prints debug information about an ELF program header.

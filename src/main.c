@@ -324,7 +324,7 @@ static bool load_elf_to_cpu(const char *const filename, Cpu *const cpu)
 
         if (phdr->p_type == PT_LOAD) {
             const ElfResult result =
-                load_phdr(cpu->memory, CPU_MEMORY_SIZE, phdr, i, elf_data, elf_data_size);
+                elf_load_phdr(cpu->memory, CPU_MEMORY_SIZE, phdr, i, elf_data, elf_data_size);
 
             if (result != ElfResult_Ok) {
                 fprintf(stderr, "Could not load an ELF program header: %s\n",

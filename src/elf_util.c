@@ -103,8 +103,8 @@ ElfResult parse_elf(const u8 *const elf_data, const size_t elf_data_size,
     return ElfResult_Ok;
 }
 
-ElfResult load_phdr(u8 *const dest, const size_t dest_size, const Elf32_Phdr *const phdr,
-                    const size_t phdr_n, const u8 *const elf_data, const size_t elf_data_size)
+ElfResult elf_load_phdr(u8 *const dest, const size_t dest_size, const Elf32_Phdr *const phdr,
+                        const size_t phdr_n, const u8 *const elf_data, const size_t elf_data_size)
 {
     ver_printf("Loading phdr[%zu] into memory.\n", phdr_n);
 
