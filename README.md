@@ -37,6 +37,8 @@ build/rv32-emu <path-to-executable>
 
 ## Usage
 
+Here's an example of how you'd compile and run a single-file program.
+
 ```bash
 # Compile your code with the RISC-V GNU toolchain
 riscv32-unknown-none-elf-gcc -nostdlib -march=rv32i -mabi=ilp32 -g -o ./hello.elf ./hello.s
