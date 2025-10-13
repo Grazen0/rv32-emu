@@ -37,20 +37,4 @@ build/rv32-emu <path-to-executable>
 
 ## Usage
 
-Here's an example of how you'd compile and run a single-file program.
-
-```bash
-# Compile your code with the RISC-V GNU toolchain
-riscv32-unknown-none-elf-gcc -nostdlib -march=rv32i -mabi=ilp32 -g -o ./hello.elf ./hello.s
-
-# Run the emulator
-rv32-emu ./hello.elf
-
-# Now, in *another* terminal...
-riscv32-unknown-none-elf-gdb ./hello.elf
-(gdb) target remote :3333
-```
-
-[pkg-config]: https://www.freedesktop.org/wiki/Software/pkg-config/
-[unity test]: https://github.com/ThrowTheSwitch/Unity
-[ruby]: https://www.ruby-lang.org/en/
+A few usage examples are provided in the [examples] directory.

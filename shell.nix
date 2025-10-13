@@ -10,6 +10,7 @@ mkShell {
 
   packages = [
     riscvPackages.binutils
+    riscvPackages.gcc
     riscvPackages.gdb
     xxd
   ];
