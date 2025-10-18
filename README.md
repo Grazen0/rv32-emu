@@ -21,6 +21,8 @@ You can check out an example project using this emulator
 - [x] Breakpoint support.
 - [x] ELF file support.
 - [x] GDB support.
+- [x] SPIM system calls.
+- [ ] Memory access checks.
 
 ## Building
 

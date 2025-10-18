@@ -18,6 +18,7 @@ typedef enum CpuStepResult : u8 {
     CpuStepResult_None,
     CpuStepResult_Break,
     CpuStepResult_IllegalInstruction,
+    CpuStepResult_Exit,
 } CpuStepResult;
 
 typedef enum AccessKind : u8 {

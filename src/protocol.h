@@ -42,6 +42,7 @@ struct GdbServer {
     bool no_ack_mode;
     PacketHandler handler;
     void *ctx;
+    bool quit;
 };
 
 char *GdbResult_display(GdbResult result);

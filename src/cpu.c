@@ -1,8 +1,12 @@
 #include "cpu.h"
 #include "macros.h"
 #include "stdinc.h"
+#include "unistd.h"
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
 
 [[nodiscard]] static u32 read_u32_le(const u8 *const memory, const u32 addr,
                                      CpuWarnings *const out_warnings)
@@ -298,10 +302,92 @@ CpuStepResult Cpu_step(Cpu *const cpu, CpuWarnings *const out_warnings)
         break;
     }
     case 0b111'0011:
-        if (funct3 == 0 && imm_i == 1) // ebreak
-            return CpuStepResult_Break;
+        if (funct3 != 0)
+            return CpuStepResult_IllegalInstruction;
 
-        return CpuStepResult_IllegalInstruction;
+        if (imm_i == 0) { // ecall
+            const u32 a7 = cpu->registers[17]; // a7
+            const u32 a0 = cpu->registers[10]; // a0
+            const u32 a1 = cpu->registers[11]; // a1
+
+            switch (a7) {
+            case 1: // Print integer
+                printf("%i", (i32)a0);
+                fflush(stdout);
+                break;
+            case 4: // Print string
+                // WARNING: this should be a LOT more robust
+                printf("%s", &cpu->memory[a0]);
+                fflush(stdout);
+                break;
+            case 5: // Read integer
+                int n = 0;
+
+                if (scanf("%d", &n) == 1)
+                    cpu->registers[10] = n;
+
+                break;
+            case 8: { // Read string
+                char *buf = malloc(a1);
+
+                if (fgets(buf, (int)a1, stdin) != nullptr) {
+                    const size_t len = strlen(buf);
+
+                    if (len != 0 && buf[len - 1] == '\n')
+                        buf[len - 1] = '\0';
+
+                    strcpy((char *)&cpu->memory[a0], buf);
+                }
+
+                free(buf);
+                break;
+            }
+            case 10: // Exit
+                return CpuStepResult_Exit;
+            case 11: // Print character
+                fputc((char)a0, stdout);
+                fflush(stdout);
+                break;
+            case 12: // Read character
+                char ch = '\0';
+
+                if (scanf(" %c", &ch) == 1)
+                    cpu->registers[10] = (u32)ch;
+
+                break;
+            case 30: // Time
+                struct timeval time = {};
+                gettimeofday(&time, nullptr);
+
+                const u64 ms = (time.tv_sec * 1000ULL) + (time.tv_usec / 1000ULL);
+
+                cpu->registers[10] = ms & 0xFFFF'FFFF;
+                cpu->registers[11] = (ms >> 32) & 0xFFFF'FFFF;
+                break;
+            case 32: // Sleep
+                usleep(1000ULL * a0);
+                break;
+            case 34: // Print integer (hex)
+                printf("%08X", a0);
+                fflush(stdout);
+                break;
+            case 35: // Print integer (binary)
+                printf("%032B", a0);
+                fflush(stdout);
+                break;
+            case 36: // Print integer (unsigned)
+                printf("%u", a0);
+                fflush(stdout);
+                break;
+            default:
+                BAIL("Illegal ecall number (%u)", a7);
+            }
+        } else if (imm_i == 1) { // ebreak
+            return CpuStepResult_Break;
+        } else {
+            return CpuStepResult_IllegalInstruction;
+        }
+        break;
     default:
         return CpuStepResult_IllegalInstruction;
     }

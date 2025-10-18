@@ -214,12 +214,19 @@ static void String_push_register_hex(String *const s, u32 value)
     return result;
 }
 
-[[nodiscard]] static String handle_continue(Context *const ctx, BufSock *const client)
+[[nodiscard]] static String handle_continue(Context *const ctx, GdbServer *const server,
+                                            BufSock *const client)
 {
     char ch = '\0';
 
     while (!BufSock_try_read_buf(client, &ch) || ch != 0x03) {
         const CpuStepResult result = step_cpu_warn(&ctx->cpu);
+
+        if (result == CpuStepResult_Exit) {
+            server->quit = true;
+            Context_set_stop_signal(ctx, "W00");
+            return String_clone(ctx->stop_signal);
+        }
 
         if (result == CpuStepResult_Break) {
             Context_set_stop_signal(ctx, "S05");
@@ -256,16 +263,23 @@ static void String_push_register_hex(String *const s, u32 value)
     if (packet->data.data[0] == 's') {
         const CpuStepResult result = step_cpu_warn(&ctx->cpu);
 
-        if (result == CpuStepResult_IllegalInstruction)
-            Context_set_stop_signal(ctx, "S04");
-        else
-            Context_set_stop_signal(ctx, "S05");
+        if (result == CpuStepResult_Exit) {
+            server->quit = true;
+            Context_set_stop_signal(ctx, "W00");
+            return String_clone(ctx->stop_signal);
+        }
 
+        if (result == CpuStepResult_IllegalInstruction) {
+            Context_set_stop_signal(ctx, "S04");
+            return String_clone(ctx->stop_signal);
+        }
+
+        Context_set_stop_signal(ctx, "S05");
         return String_clone(ctx->stop_signal);
     }
 
     if (packet->data.data[0] == 'c')
-        return handle_continue(ctx, client);
+        return handle_continue(ctx, server, client);
 
     if (strncmp(packet->data.data, "Hg", 2) == 0)
         return String_from("OK");

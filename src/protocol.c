@@ -250,6 +250,7 @@ bool GdbServer_new(const PacketHandler handler, void *const ctx, GdbServer *cons
         .no_ack_mode = false,
         .handler = handler,
         .ctx = ctx,
+        .quit = false,
     };
 
     return true;
@@ -287,7 +288,7 @@ GdbResult GdbServer_handle_client(GdbServer *const server, const int client_sock
 
     BufSock client = BufSock_new(client_sock, CLIENT_BUF_CAPACITY);
 
-    while (true) {
+    while (!server->quit) {
         Packet packet = {};
         GdbResult result = BufSock_receive_packet(&client, &packet);
 
@@ -328,6 +329,7 @@ GdbResult GdbServer_handle_client(GdbServer *const server, const int client_sock
         }
     }
 
+    close(client.sock);
     BufSock_destroy(&client);
     return GdbResult_Ok;
 }
