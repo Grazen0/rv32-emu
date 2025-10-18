@@ -16,8 +16,7 @@ You can check out an example project using this emulator
 ## Features
 
 - [x] RV32I integer instructions.
-- [x] ~~RV64I extra integer instructions.~~ I'm probably sticking to 32 bits.
-- [ ] RVF/D floating-point instructions.
+- [ ] F extension.
 - [x] Breakpoint support.
 - [x] ELF file support.
 - [x] GDB support.
@@ -27,7 +26,7 @@ You can check out an example project using this emulator
 ## Building
 
 If don't disable compiling tests via `-DBUILD_TESTING=Off`, you'll need to have
-[Ruby] installed on your machine.
+[Ruby](https://www.ruby-lang.org/) installed on your machine.
 
 You should be able to just clone the repo and run these:
 
