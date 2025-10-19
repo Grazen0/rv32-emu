@@ -35,7 +35,7 @@ const char *ElfResult_display(const ElfResult result)
     case ElfResult_InvalidSectionHeaderSize:
         return "Invalid section header size.";
     case ElfResult_UnalignedVAddr:
-        return "p_vaddr of not aligned properly";
+        return "p_vaddr not aligned properly";
     case ElfResult_ProgramDataFileOutOfBounds:
         return "File data exceeds ELF file size.";
     case ElfResult_ProgramDataVAddrOutOfBounds:
