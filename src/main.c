@@ -327,7 +327,7 @@ static bool load_elf(const char *const filename, Cpu *const cpu, SegmentedMemory
 
             if (result != ElfResult_Ok) {
                 fprintf(stderr, "Could not load ELF header: %s\n", ElfResult_display(result));
-                return EXIT_FAILURE;
+                return false;
             }
 
             SegmentedMemory_add_segment(mem, seg);
