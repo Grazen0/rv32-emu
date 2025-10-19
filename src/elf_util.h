@@ -1,6 +1,7 @@
 #ifndef RV32_EMU_ELF_UTIL_H
 #define RV32_EMU_ELF_UTIL_H
 
+#include "memory.h"
 #include "stdinc.h"
 #include <elf.h>
 #include <stddef.h>
@@ -58,33 +59,20 @@ typedef enum ElfResult {
                                   const Elf32_Ehdr **out_ehdr, const Elf32_Phdr **out_phdrs);
 
 /**
- * \brief Loads a program section into dest.
+ * \brief Loads an ELF header and constructs its Segment data.
  *
- * Will load the data pointed to by the program header at phdr into the address space starting at
- * dest.
- *
- * \param dest The address space to load data into.
- * \param dest_size Size of dest.
  * \param phdr The program header whose data is to be loaded.
  * \param phdr_n Index of phdr in the phdrs list.
  * \param elf_data Full binary data of the phdr's ELF file.
  * \param elf_data_size Size of elf_data
+ * \param dest Address space where to place the segment's data.
+ * \param out_seg The constructed Segment.
  *
  * \return The result of the operation.
- */
-[[nodiscard]] ElfResult elf_load_phdr(u8 *dest, size_t dest_size, const Elf32_Phdr *phdr,
-                                      size_t phdr_n, const u8 *elf_data, size_t elf_data_size);
-
-/**
- * \brief Verbose-prints debug information about an ELF program header.
  *
- * \param phdr The header to print.
- * \param phdr_n Index of phdr in the list of program headers.
- * \param elf_data The full ELF binary data.
- * \param elf_data_size Size of elf_data.
- *
- * \sa set_verbose, ver_printf
+ * \sa Segment, SegmentedMemory
  */
-void print_phdr_debug(const Elf32_Phdr *phdr, size_t phdr_n);
+[[nodiscard]] ElfResult Segment_from_phdr(const Elf32_Phdr *phdr, size_t phdr_n, const u8 *elf_data,
+                                          size_t elf_data_size, u8 *dest, Segment *out_seg);
 
 #endif

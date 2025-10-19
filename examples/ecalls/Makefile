@@ -1,4 +1,4 @@
-TARGET_EXEC := fib.elf
+TARGET_EXEC := selection_sort.elf
 
 BUILD_DIR := ./build
 SRC_DIRS := ./src

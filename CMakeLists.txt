@@ -15,6 +15,7 @@ set(sources
     src/numeric.c
     src/protocol.c
     src/macros.c
+    src/memory.c
     src/stdinc.c
     src/str.c)
 

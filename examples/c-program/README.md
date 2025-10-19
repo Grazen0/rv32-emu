@@ -6,7 +6,7 @@ words in memory starting at address `0x80000000`.
 You can compile and run this program with this command:
 
 ```bash
-make run
+make listen
 ```
 
 Then, connect via GDB like this:

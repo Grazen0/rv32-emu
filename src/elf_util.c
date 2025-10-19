@@ -1,10 +1,13 @@
 #include "elf_util.h"
+#include "cpu.h"
 #include "log.h"
 #include "macros.h"
+#include "memory.h"
 #include "numeric.h"
 #include <elf.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 const char *ElfResult_display(const ElfResult result)
@@ -103,8 +106,9 @@ ElfResult parse_elf(const u8 *const elf_data, const size_t elf_data_size,
     return ElfResult_Ok;
 }
 
-ElfResult elf_load_phdr(u8 *const dest, const size_t dest_size, const Elf32_Phdr *const phdr,
-                        const size_t phdr_n, const u8 *const elf_data, const size_t elf_data_size)
+ElfResult Segment_from_phdr(const Elf32_Phdr *const phdr, const size_t phdr_n,
+                            const u8 *const elf_data, const size_t elf_data_size, u8 *const dest,
+                            Segment *const out_seg)
 {
     ver_printf("Loading phdr[%zu] into memory.\n", phdr_n);
 
@@ -114,11 +118,6 @@ ElfResult elf_load_phdr(u8 *const dest, const size_t dest_size, const Elf32_Phdr
 
         if ((phdr->p_vaddr % phdr->p_align) != (phdr->p_offset % phdr->p_align))
             return ElfResult_UnalignedVAddr;
-    }
-
-    if ((phdr->p_flags & PF_R) == 0 || (phdr->p_flags & PF_W) == 0 || (phdr->p_flags & PF_X) == 0) {
-        fprintf(stderr, "Warning(phdrs[%zu]): Ignoring access flags (0b%03B).\n", phdr_n,
-                phdr->p_flags);
     }
 
     if (phdr->p_paddr != phdr->p_vaddr) {
@@ -132,23 +131,31 @@ ElfResult elf_load_phdr(u8 *const dest, const size_t dest_size, const Elf32_Phdr
     if (phdr->p_offset + phdr->p_filesz > elf_data_size)
         return ElfResult_ProgramDataFileOutOfBounds;
 
-    if ((size_t)phdr->p_vaddr + phdr->p_memsz > dest_size)
+    if ((size_t)phdr->p_vaddr + phdr->p_memsz > CPU_ADDRESS_SPACE)
         return ElfResult_ProgramDataVAddrOutOfBounds;
 
-    memcpy(&dest[phdr->p_vaddr], &elf_data[phdr->p_offset], phdr->p_filesz);
-    return ElfResult_Ok;
-}
+    SegPerms perms = SegPerms_None;
 
-void print_phdr_debug(const Elf32_Phdr *const phdr, const size_t phdr_n)
-{
-    ver_printf("phdrs[%zu] ====================================\n", phdr_n);
-    ver_printf("type:    0x%02X\n", phdr->p_type);
-    ver_printf("flags:   0b%03B\n", phdr->p_flags);
-    ver_printf("offset:  0x%02X\n", phdr->p_offset);
-    ver_printf("vaddr:   0x%02X\n", phdr->p_vaddr);
-    ver_printf("paddr:   0x%02X\n", phdr->p_paddr);
-    ver_printf("filesz:  0x%02X\n", phdr->p_filesz);
-    ver_printf("memsz:   0x%02X\n", phdr->p_memsz);
-    ver_printf("align:   0x%02X\n", phdr->p_align);
-    ver_printf("\n");
+    if ((phdr->p_flags & PF_R) != 0)
+        perms |= SegPerms_Read;
+
+    if ((phdr->p_flags & PF_W) != 0)
+        perms |= SegPerms_Write;
+
+    if ((phdr->p_flags & PF_X) != 0)
+        perms |= SegPerms_Read | SegPerms_Execute;
+
+    *out_seg = (Segment){
+        .addr = phdr->p_vaddr,
+        .size = phdr->p_memsz,
+        .perms = perms,
+    };
+
+    memcpy(&dest[phdr->p_vaddr], &elf_data[phdr->p_offset], phdr->p_filesz);
+
+    // Zero-out BSS
+    if (phdr->p_memsz > phdr->p_filesz)
+        memset(&dest[phdr->p_vaddr + phdr->p_filesz], 0, phdr->p_memsz - phdr->p_filesz);
+
+    return ElfResult_Ok;
 }

@@ -34,7 +34,10 @@ $(BUILD_DIR)/%.s.o: %.s
 	$(CC) $(CFLAGS) -c $< -o $@
 
 run: $(BUILD_DIR)/$(TARGET_EXEC)
-	$(RV32_EMU) $(RV32_EMU_FLAGS) -p $(GDB_PORT) $<
+	$(RV32_EMU) $(RV32_EMU_FLAGS) $<
+
+listen: $(BUILD_DIR)/$(TARGET_EXEC)
+	$(RV32_EMU) $(RV32_EMU_FLAGS) -l -p $(GDB_PORT) $<
 
 debug: $(BUILD_DIR)/$(TARGET_EXEC)
 	$(GDB) $(GDB_FLAGS) $<

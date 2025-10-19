@@ -3,6 +3,7 @@
 #include "elf_util.h"
 #include "io.h"
 #include "log.h"
+#include "memory.h"
 #include "protocol.h"
 #include "stdinc.h"
 #include "str.h"
@@ -50,13 +51,13 @@ static void sigint_handler([[maybe_unused]] const int sig_no)
 }
 
 typedef struct Context {
-    Cpu cpu;
+    Cpu *cpu;
+    Memory *mem;
     String stop_signal;
 } Context;
 
 static void Context_destroy(Context *const ctx)
 {
-    Cpu_destroy(&ctx->cpu);
     String_destroy(&ctx->stop_signal);
 }
 
@@ -120,12 +121,11 @@ static void String_push_register_hex(String *const s, u32 value)
     const u32 addr = strtol(&packet->data.data[1], &split, 16);
     const size_t len = strtol(split + 1, nullptr, 16);
 
-    if (addr + len >= CPU_MEMORY_SIZE)
-        return String_from("E14");
     String s = String_with_capacity(2 * len);
 
     for (size_t i = 0; i < len; ++i) {
-        const u8 byte = ctx->cpu.memory[addr + i];
+        // TODO: handle invalid reads
+        const u8 byte = Memory_read(ctx->mem, addr + i);
         String_push_hex(&s, byte);
     }
 
@@ -145,15 +145,13 @@ static void String_push_register_hex(String *const s, u32 value)
     if (2 * len != strlen(byte_data))
         return String_from("E01"); // Bad packet
 
-    if (addr + len >= CPU_MEMORY_SIZE)
-        return String_from("E14"); // Bad address
-
     for (size_t i = 0; i < len; ++i) {
         char buf[3] = {};
         memcpy(buf, byte_data + (2 * i), 2);
 
         const u8 byte = strtol(buf, nullptr, 16);
-        ctx->cpu.memory[addr + i] = byte;
+        // TODO: handle invalid writes
+        Memory_write(ctx->mem, addr + i, byte);
     }
 
     return String_from("OK");
@@ -164,9 +162,9 @@ static void String_push_register_hex(String *const s, u32 value)
     String s = String_with_capacity(8L * (CPU_REGS_SIZE + 1L));
 
     for (size_t i = 0; i < CPU_REGS_SIZE; ++i)
-        String_push_register_hex(&s, ctx->cpu.registers[i]);
+        String_push_register_hex(&s, ctx->cpu->registers[i]);
 
-    String_push_register_hex(&s, ctx->cpu.pc);
+    String_push_register_hex(&s, ctx->cpu->pc);
     return s;
 }
 
@@ -193,25 +191,12 @@ static void String_push_register_hex(String *const s, u32 value)
     size_t pos = 1;
 
     for (size_t i = 0; i < CPU_REGS_SIZE; ++i) {
-        ctx->cpu.registers[i] = u32_read_hex_le(&packet->data.data[pos]);
+        ctx->cpu->registers[i] = u32_read_hex_le(&packet->data.data[pos]);
         pos += 8L;
     }
 
-    ctx->cpu.pc = u32_read_hex_le(&packet->data.data[pos]);
+    ctx->cpu->pc = u32_read_hex_le(&packet->data.data[pos]);
     return String_from("OK");
-}
-
-[[nodiscard]] static CpuStepResult step_cpu_warn(Cpu *const cpu)
-{
-    CpuWarnings warnings = {};
-    const CpuStepResult result = Cpu_step(cpu, &warnings);
-
-    if (warnings.misaligned_mem_access.warn) {
-        fprintf(stderr, "Warning: Misaligned memory access at 0x%08X.\n",
-                warnings.misaligned_mem_access.addr);
-    }
-
-    return result;
 }
 
 [[nodiscard]] static String handle_continue(Context *const ctx, GdbServer *const server,
@@ -220,7 +205,7 @@ static void String_push_register_hex(String *const s, u32 value)
     char ch = '\0';
 
     while (!BufSock_try_read_buf(client, &ch) || ch != 0x03) {
-        const CpuStepResult result = step_cpu_warn(&ctx->cpu);
+        const CpuStepResult result = Cpu_step(ctx->cpu, ctx->mem);
 
         if (result == CpuStepResult_Exit) {
             server->quit = true;
@@ -261,7 +246,7 @@ static void String_push_register_hex(String *const s, u32 value)
         return String_clone(ctx->stop_signal);
 
     if (packet->data.data[0] == 's') {
-        const CpuStepResult result = step_cpu_warn(&ctx->cpu);
+        const CpuStepResult result = Cpu_step(ctx->cpu, ctx->mem);
 
         if (result == CpuStepResult_Exit) {
             server->quit = true;
@@ -305,9 +290,9 @@ static void String_push_register_hex(String *const s, u32 value)
     return String_new();
 }
 
-static bool load_elf_to_cpu(const char *const filename, Cpu *const cpu)
+static bool load_elf(const char *const filename, Cpu *const cpu, SegmentedMemory *const mem)
 {
-    printf("Reading %s\n", filename);
+    ver_printf("Reading %s\n", filename);
 
     size_t elf_data_size = 0;
     u8 *elf_data = load_file(filename, &elf_data_size);
@@ -327,24 +312,25 @@ static bool load_elf_to_cpu(const char *const filename, Cpu *const cpu)
         return false;
     }
 
-    printf("Loading program...\n");
+    ver_printf("Loading program...\n");
     ver_printf("\n");
 
     cpu->pc = ehdr->e_entry;
 
     for (size_t i = 0; i < ehdr->e_phnum; ++i) {
         const Elf32_Phdr *const phdr = &phdrs[i];
-        print_phdr_debug(phdrs, i);
 
         if (phdr->p_type == PT_LOAD) {
+            Segment seg = {};
             const ElfResult result =
-                elf_load_phdr(cpu->memory, CPU_MEMORY_SIZE, phdr, i, elf_data, elf_data_size);
+                Segment_from_phdr(phdr, i, elf_data, elf_data_size, mem->data, &seg);
 
             if (result != ElfResult_Ok) {
-                fprintf(stderr, "Could not load an ELF program header: %s\n",
-                        ElfResult_display(result));
+                fprintf(stderr, "Could not load ELF header: %s\n", ElfResult_display(result));
                 return EXIT_FAILURE;
             }
+
+            SegmentedMemory_add_segment(mem, seg);
         }
     }
 
@@ -352,41 +338,11 @@ static bool load_elf_to_cpu(const char *const filename, Cpu *const cpu)
     return true;
 }
 
-int main(int argc, const char *argv[])
+static int run_emulator_with_gdb(Cpu *const cpu, Memory *const mem, const u16 port)
 {
-    int port = DEFAULT_PORT;
-    bool verbose = false;
-
-    struct argparse_option options[] = {
-        OPT_HELP(),
-        OPT_INTEGER('p', "port", &port, "port to listen for gdb on", nullptr, 0, 0),
-        OPT_BOOLEAN('v', "verbose", &verbose, nullptr, nullptr, 0, 0),
-        OPT_END(),
-    };
-
-    struct argparse argparse;
-
-    argparse_init(&argparse, options, usages, 0);
-    argparse_describe(&argparse, "\nA quick and dirty RISC-V 32 CPU emulator written in C.",
-                      nullptr);
-
-    argc = argparse_parse(&argparse, argc, argv);
-    set_verbose(verbose);
-
-    if (argc < 1) {
-        argparse_usage(&argparse);
-        return EXIT_FAILURE;
-    }
-
-    const char *const filename = argv[0];
-
-    Cpu cpu = Cpu_new();
-
-    if (!load_elf_to_cpu(filename, &cpu))
-        return EXIT_FAILURE;
-
     Context ctx = {
         .cpu = cpu,
+        .mem = mem,
         .stop_signal = String_from("S05"),
     };
 
@@ -412,6 +368,7 @@ int main(int argc, const char *argv[])
 
     if (client_sock < 0) {
         perror("Could not accept connection");
+        Context_destroy(&ctx);
         return EXIT_FAILURE;
     }
 
@@ -421,10 +378,80 @@ int main(int argc, const char *argv[])
 
     if (result != GdbResult_Ok) {
         fprintf(stderr, "Error: %s\n", GdbResult_display(result));
+        Context_destroy(&ctx);
         return EXIT_FAILURE;
     }
 
     Context_destroy(&ctx);
-
     return EXIT_SUCCESS;
+}
+
+static int run_emulator(Cpu *const cpu, Memory *const mem)
+{
+    while (true) {
+        const CpuStepResult result = Cpu_step(cpu, mem);
+
+        switch (result) {
+        case CpuStepResult_Exit:
+            return EXIT_SUCCESS;
+
+        case CpuStepResult_IllegalInstruction:
+            fprintf(stderr, "[EXCEPTION]: Illegal instruction\n");
+            return EXIT_FAILURE;
+
+        case CpuStepResult_Break:
+            fprintf(stderr, "[EXCEPTION]: Program break\n");
+            return EXIT_FAILURE;
+
+        case CpuStepResult_None:
+        default:
+        }
+    }
+}
+
+int main(int argc, const char *argv[])
+{
+    int port = DEFAULT_PORT;
+    bool verbose = false;
+    bool listen = false;
+
+    struct argparse_option options[] = {
+        OPT_HELP(),
+        OPT_BOOLEAN('l', "listen", &listen, "listen for a gdb connection", nullptr, 0, 0),
+        OPT_INTEGER('p', "port", &port, "port to listen on", nullptr, 0, 0),
+        OPT_BOOLEAN('v', "verbose", &verbose, nullptr, nullptr, 0, 0),
+        OPT_END(),
+    };
+
+    struct argparse argparse;
+
+    argparse_init(&argparse, options, usages, 0);
+    argparse_describe(&argparse, "\nA quick and dirty RISC-V 32 CPU emulator written in C.",
+                      nullptr);
+
+    argc = argparse_parse(&argparse, argc, argv);
+    set_verbose(verbose);
+
+    if (argc < 1) {
+        argparse_usage(&argparse);
+        return EXIT_FAILURE;
+    }
+
+    const char *const filename = argv[0];
+
+    Cpu cpu = Cpu_new();
+    SegmentedMemory mem = SegmentedMemory_new();
+
+    if (!load_elf(filename, &cpu, &mem))
+        return EXIT_FAILURE;
+
+    int result = -1;
+
+    if (listen)
+        result = run_emulator_with_gdb(&cpu, (Memory *)&mem, port);
+
+    result = run_emulator(&cpu, (Memory *)&mem);
+
+    SegmentedMemory_destroy(&mem);
+    return result;
 }
