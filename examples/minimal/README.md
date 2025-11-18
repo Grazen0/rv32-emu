@@ -6,14 +6,14 @@ in a loop.
 You can compile and run this program with these commands:
 
 ```
-riscv32-unknown-none-elf-gcc -nostdlib -march=rv32i -mabi=ilp32 -g ./main.s
+riscv32-none-elf-gcc -nostdlib -march=rv32i -mabi=ilp32 -g ./main.s
 rv32-emu ./a.out
 ```
 
 Then, connect via GDB like this:
 
 ```
-riscv32-unknown-none-elf-gdb ./a.out
+riscv32-none-elf-gdb ./a.out
 (gdb) target remote :3333
 ```
 

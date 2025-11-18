@@ -6,6 +6,11 @@
   riscvPackages,
 }:
 mkShell {
+  hardeningDisable = [
+    "relro"
+    "bindnow"
+  ];
+
   inputsFrom = [ rv32-emu ];
 
   packages = [

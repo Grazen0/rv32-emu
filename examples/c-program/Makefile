@@ -13,11 +13,11 @@ INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
 CFLAGS := $(INC_FLAGS) -nostdlib -march=rv32i -mabi=ilp32 -g
 
-CC := riscv32-unknown-none-elf-gcc
+CC := riscv32-none-elf-gcc
 
 RV32_EMU := rv32-emu
 
-GDB := riscv32-unknown-none-elf-gdb
+GDB := riscv32-none-elf-gdb
 GDB_PORT := 3333
 
 all: $(BUILD_DIR)/$(TARGET_EXEC)
@@ -43,6 +43,6 @@ debug: $(BUILD_DIR)/$(TARGET_EXEC)
 	$(GDB) $(GDB_FLAGS) $<
 
 clean:
-	rm -r $(BUILD_DIR)
+	rm -rf $(BUILD_DIR)
 
 .PHONY: all clean run debug
