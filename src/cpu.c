@@ -3,6 +3,7 @@
 #include "memory.h"
 #include "stdinc.h"
 #include "unistd.h"
+#include <math.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -246,18 +247,65 @@ CpuStepResult Cpu_step(Cpu *const cpu, Memory *const mem)
         new_pc = cpu->pc + imm_j;
         break;
     }
+    case 0b101'0011: // float arithmetic
+        switch (funct7 & 0b1111100) {
+        case 0b0000000: // fadd
+            cpu->fp_registers[rd] = cpu->fp_registers[rs1] + cpu->fp_registers[rs2];
+            break;
+
+        case 0b0000100: // fsub
+            cpu->fp_registers[rd] = cpu->fp_registers[rs1] - cpu->fp_registers[rs2];
+            break;
+
+        case 0b0001000: // fmul
+            cpu->fp_registers[rd] = cpu->fp_registers[rs1] * cpu->fp_registers[rs2];
+            break;
+
+        case 0b0001100: // fdiv
+            cpu->fp_registers[rd] = cpu->fp_registers[rs1] / cpu->fp_registers[rs2];
+            break;
+
+        case 0b0101100: // fsqrt
+            cpu->fp_registers[rd] = sqrtf(cpu->fp_registers[rs1]);
+            break;
+
+        default:
+            return CpuStepResult_IllegalInstruction;
+        }
+        break;
+
+    case 0b000'0111: { // flw
+        const u32 addr = cpu->registers[rs1] + imm_i;
+        const u32 val_int = Memory_read_u32_le(mem, addr);
+        cpu->fp_registers[rd] = *(float *)&val_int;
+        break;
+    }
+
+    case 0b010'0111: { // fsw
+        const u32 addr = cpu->registers[rs1] + imm_i;
+        Memory_write_u32_le(mem, addr, *(u32 *)&cpu->fp_registers[rs2]);
+        break;
+    }
+
     case 0b111'0011:
         if (funct3 != 0)
             return CpuStepResult_IllegalInstruction;
 
         if (imm_i == 0) { // ecall
-            const u32 a7 = cpu->registers[17]; // a7
-            const u32 a0 = cpu->registers[10]; // a0
-            const u32 a1 = cpu->registers[11]; // a1
+            const u32 a7 = cpu->registers[17];
+            const u32 a0 = cpu->registers[10];
+            const u32 a1 = cpu->registers[11];
+
+            const float fa0 = cpu->fp_registers[10];
 
             switch (a7) {
             case Syscall_PrintInteger:
                 printf("%i", (i32)a0);
+                fflush(stdout);
+                break;
+
+            case Syscall_PrintFloat:
+                printf("%f", fa0);
                 fflush(stdout);
                 break;
 
@@ -282,6 +330,14 @@ CpuStepResult Cpu_step(Cpu *const cpu, Memory *const mem)
 
                 if (scanf("%d", &n) == 1)
                     cpu->registers[10] = n;
+
+                break;
+
+            case Syscall_ReadFloat:
+                float f = 0;
+
+                if (scanf("%f", &f) == 1)
+                    cpu->fp_registers[10] = f;
 
                 break;
 

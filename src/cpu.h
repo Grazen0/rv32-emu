@@ -12,6 +12,7 @@ static constexpr size_t CPU_REGS_SIZE = 32;
 typedef struct Cpu {
     u32 pc;
     u32 registers[CPU_REGS_SIZE];
+    float fp_registers[CPU_REGS_SIZE];
 } Cpu;
 
 typedef enum CpuStepResult : u8 {
@@ -23,8 +24,10 @@ typedef enum CpuStepResult : u8 {
 
 typedef enum Syscall : u32 {
     Syscall_PrintInteger = 1,
+    Syscall_PrintFloat = 2,
     Syscall_PrintString = 4,
     Syscall_ReadInteger = 5,
+    Syscall_ReadFloat = 6,
     Syscall_ReadString = 8,
     Syscall_Sbrk = 9,
     Syscall_Exit = 10,

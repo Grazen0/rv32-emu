@@ -24,6 +24,8 @@ target_include_directories(argparse SYSTEM PUBLIC external/argparse)
 
 add_library(rv32_emu_lib ${sources})
 set_target_properties(rv32_emu_lib PROPERTIES C_CLANG_TIDY "clang-tidy")
+
+target_link_libraries(rv32_emu_lib m)
 target_include_directories(rv32_emu_lib PUBLIC src)
 target_compile_options(rv32_emu_lib PUBLIC
     $<$<BOOL:${GCC_LIKE}>:-Wall>
