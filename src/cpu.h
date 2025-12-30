@@ -11,8 +11,9 @@ static constexpr size_t CPU_REGS_SIZE = 32;
 
 typedef struct Cpu {
     u32 pc;
-    u32 registers[CPU_REGS_SIZE];
-    float fp_registers[CPU_REGS_SIZE];
+    u32 regs[CPU_REGS_SIZE];
+    float float_regs[CPU_REGS_SIZE];
+    double double_regs[CPU_REGS_SIZE];
 } Cpu;
 
 typedef enum CpuStepResult : u8 {

@@ -162,7 +162,7 @@ static void String_push_register_hex(String *const s, u32 value)
     String s = String_with_capacity(8L * (CPU_REGS_SIZE + 1L));
 
     for (size_t i = 0; i < CPU_REGS_SIZE; ++i)
-        String_push_register_hex(&s, ctx->cpu->registers[i]);
+        String_push_register_hex(&s, ctx->cpu->regs[i]);
 
     String_push_register_hex(&s, ctx->cpu->pc);
     return s;
@@ -191,7 +191,7 @@ static void String_push_register_hex(String *const s, u32 value)
     size_t pos = 1;
 
     for (size_t i = 0; i < CPU_REGS_SIZE; ++i) {
-        ctx->cpu->registers[i] = u32_read_hex_le(&packet->data.data[pos]);
+        ctx->cpu->regs[i] = u32_read_hex_le(&packet->data.data[pos]);
         pos += 8L;
     }
 
